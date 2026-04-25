@@ -2,13 +2,17 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar, get_args
 from uuid import UUID, uuid4
 
 from cathode.styles import Axis, Borders, BorderStyle, Color, Wrap, wrap_lines
 
 if TYPE_CHECKING:
+    from typing_extensions import Self
+
     from cathode.tree import ElementTree
+
+ComponentType = TypeVar('ComponentType', bound='Widget')
 
 Side = Literal['top', 'bottom', 'left', 'right']
 Spacing = int | dict[Side, int]
@@ -100,7 +104,7 @@ class Widget(Component):
         return self.controller.contents()
 
 
-class BaseController[ComponentType: Widget]:
+class BaseController(Generic[ComponentType]):
     state: list[str] = []
     tree: ElementTree | None = None
 

@@ -11,7 +11,7 @@ authors = [
 ]
 license = "MIT"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 
 [project.optional-dependencies]
 testing = [
@@ -19,6 +19,7 @@ testing = [
     "ty",
     "pytest",
     "pre-commit",
+    "typing_extensions>=4.0; python_version < '3.11'",
 ]
 
 [tool.setuptools]
@@ -30,7 +31,7 @@ include-package-data = true
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py310"
 
 lint.select = ["ALL"]
 lint.ignore = [

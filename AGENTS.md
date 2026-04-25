@@ -1,6 +1,6 @@
 # Project
 
-cathode is a simple python terminal UI library for building interactive CLI tools. It targets Python 3.9+ and should remain easy to inspect for automatic API docs generation.
+cathode is a simple python terminal UI library for building interactive CLI tools. It targets Python 3.10+ and should remain easy to inspect for automatic API docs generation.
 
 # Contributing
 
