@@ -51,7 +51,9 @@ def apply_spacing(rows: list[str], width: int, spacing: dict[Side, int]) -> list
     vertical = ' ' * (width + spacing['left'] + spacing['right'])
     return [vertical] * spacing['top'] + [left + row + right for row in rows] + [vertical] * spacing['bottom']
 
-def apply_borders(rows: list[str], width: int, borders: set[Side], border_style: BorderStyle, border_color: Color | None) -> list[str]:
+def apply_borders(
+    rows: list[str], width: int, borders: set[Side], border_style: BorderStyle, border_color: Color | None,
+) -> list[str]:
     if not borders:
         return rows
     color_code = color_to_ansi(border_color, background=False)
@@ -78,7 +80,8 @@ def apply_chrome(rows: list[str], content_width: int, element: Element) -> list[
     if element.background_color:
         color_code = color_to_ansi(element.background_color, background=True)
         rows = [color_code + row + Colors.BG_END for row in rows]
-    rows = apply_borders(rows, padded_width, {k for k, v in element.borders.items() if v}, element.border_style, element.border_color)
+    border_sides = {k for k, v in element.borders.items() if v}
+    rows = apply_borders(rows, padded_width, border_sides, element.border_style, element.border_color)
     rows = apply_spacing(rows, bordered_width, element.margins)
     return rows
 
@@ -150,7 +153,7 @@ async def render_root(_root: Component) -> None:
             if not tree.dirty:
                 await asyncio.sleep(0.01)
                 continue
-            for uuid in sorted(tree.dirty, key=lambda uuid: depth(tree, tree.nodes[uuid])):  # start at the top and work downwards
+            for uuid in sorted(tree.dirty, key=lambda uuid: depth(tree, tree.nodes[uuid])):  # top-down
                 if uuid in tree.nodes:
                     update(tree, tree.nodes[uuid])
             tree.dirty.clear()
@@ -161,7 +164,8 @@ async def render_root(_root: Component) -> None:
             new_render_lines = render(tree, root).split('\n')
 
             # Check if we need to clear screen due to large difference in output size
-            if len(previous_render_lines) - len(new_render_lines) > min(terminal_size.lines / 2, terminal_size.lines - 20):
+            line_drop = len(previous_render_lines) - len(new_render_lines)
+            if line_drop > min(terminal_size.lines / 2, terminal_size.lines - 20):
                 sys.stdout.write('\033c')
                 previous_render_lines = []
 
@@ -177,7 +181,9 @@ async def render_root(_root: Component) -> None:
                 continue
 
             output = cursor_up(len(previous_render_lines) - first_diff_idx)
-            for prev_line, new_line in zip_longest(previous_render_lines[first_diff_idx:], new_render_lines[first_diff_idx:], fillvalue=''):
+            prev_tail = previous_render_lines[first_diff_idx:]
+            new_tail = new_render_lines[first_diff_idx:]
+            for prev_line, new_line in zip_longest(prev_tail, new_tail, fillvalue=''):
                 sys.stdout.write('\r')
                 if ansi_len(new_line) < ansi_len(prev_line):
                     output += erase_line
@@ -192,7 +198,8 @@ async def render_root(_root: Component) -> None:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         show_cursor()
 
-        first_non_blank = next((i for i, line in enumerate(reversed(previous_render_lines)) if line.strip()), len(previous_render_lines) - 1)
+        reversed_lines = enumerate(reversed(previous_render_lines))
+        first_non_blank = next((i for i, line in reversed_lines if line.strip()), len(previous_render_lines) - 1)
         if first_non_blank > 0:
             sys.stdout.write(cursor_up(first_non_blank))
         sys.stdout.write('\r\n')

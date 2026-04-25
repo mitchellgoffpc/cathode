@@ -5,21 +5,25 @@ from cathode.styles import Axis, ansi_len
 from cathode.tree import ElementTree, Offset
 
 
-def layout(tree: ElementTree, element: Element, available_width: int | None = None, available_height: int | None = None) -> None:
+def layout(
+    tree: ElementTree, element: Element, available_width: int | None = None, available_height: int | None = None,
+) -> None:
     collapse_tree(tree, element)
     compute_lengths(tree, element, Axis.HORIZONTAL, available_width)
     compute_lengths(tree, element, Axis.VERTICAL, available_height)
     compute_offsets(tree, element)
 
 def collapse_tree(tree: ElementTree, element: Element) -> None:
-    tree.collapsed_children[element.uuid] = list(chain.from_iterable(collapse_children(tree, child) for child in tree.children[element.uuid]))
+    tree.collapsed_children[element.uuid] = list(chain.from_iterable(
+        collapse_children(tree, child) for child in tree.children[element.uuid]))
     for child in tree.collapsed_children[element.uuid]:
         collapse_tree(tree, child)
 
 def collapse_children(tree: ElementTree, component: Component | None) -> list[Element]:
     match component:
         case None: return []
-        case Widget(): return list(chain.from_iterable(collapse_children(tree, child) for child in tree.children[component.uuid]))
+        case Widget():
+            return list(chain.from_iterable(collapse_children(tree, child) for child in tree.children[component.uuid]))
         case Element(): return [component] if component.visible else []
         case _: raise ValueError(f"Unknown component type: {type(component)}")
 
@@ -37,7 +41,8 @@ def compute_lengths(tree: ElementTree, element: Element, axis: Axis, available_l
     # First: fixed-length children (int)
     for child, child_length in zip(collapsed, child_lengths, strict=True):
         if isinstance(child_length, int):
-            compute_lengths(tree, child, axis, min(remaining_length, child_length) if remaining_length is not None else child_length)
+            child_avail = min(remaining_length, child_length) if remaining_length is not None else child_length
+            compute_lengths(tree, child, axis, child_avail)
             if flex is axis and remaining_length is not None:
                 remaining_length = max(0, remaining_length - computed_lengths[child.uuid])
 
@@ -79,7 +84,8 @@ def compute_lengths(tree: ElementTree, element: Element, axis: Axis, available_l
             inner_length = max((computed_lengths[c.uuid] for c in collapsed), default=0)
         final_length = inner_length + element.chrome(axis)
 
-    computed_lengths[element.uuid] = min(available_length, final_length) if available_length is not None else final_length
+    computed_lengths[element.uuid] = (
+        min(available_length, final_length) if available_length is not None else final_length)
 
 def compute_offsets(tree: ElementTree, element: Element) -> None:
     flex = element.flex if isinstance(element, Box) else Axis.VERTICAL

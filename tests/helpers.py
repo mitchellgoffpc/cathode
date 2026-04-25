@@ -7,7 +7,8 @@ from cathode.components import BaseController, Box, Component, Text, Widget
 class WideTree(Widget):
     class Controller(BaseController):
         def contents(self) -> list[Component | None]:
-            return [Box()[(Text(text=str(i), margin={'top': 1, 'left': 1}, border=['bottom', 'right']) for i in range(100))]]
+            children = (Text(text=str(i), margin={'top': 1, 'left': 1}, border=['bottom', 'right']) for i in range(100))
+            return [Box()[children]]
 
 @dataclass
 class DeepTree(Widget):

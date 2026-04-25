@@ -33,9 +33,11 @@ class ElementTree:
             case Widget() as widget if is_dataclass(widget): attrs = asdict(widget)
             case _: attrs = {}
         if uuid in self.offsets and uuid in self.widths and uuid in self.heights:
-            attrs = {'w': self.widths[uuid], 'h': self.heights[uuid], 'x': self.offsets[uuid].x, 'y': self.offsets[uuid].y} | attrs
+            attrs = {'w': self.widths[uuid], 'h': self.heights[uuid],
+                     'x': self.offsets[uuid].x, 'y': self.offsets[uuid].y} | attrs
         uuid_str = f"{str(uuid).split('-')[0]} → " if verbose else ''
-        attrs_str = '('  + ', '.join(f'{k}={truncate(repr(v), 100)}' for k, v in attrs.items() if not k.startswith('_')) + ')'
+        items = (f'{k}={truncate(repr(v), 100)}' for k, v in attrs.items() if not k.startswith('_'))
+        attrs_str = '(' + ', '.join(items) + ')'
         result = f"{prefix}{uuid_str}{self.nodes[uuid].__class__.__name__}{attrs_str if attrs else ''}\n"
         for child in self.children.get(uuid, []):
             if child:

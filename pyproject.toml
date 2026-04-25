@@ -29,7 +29,7 @@ include-package-data = true
 "*" = ["*"]
 
 [tool.ruff]
-line-length = 160
+line-length = 120
 target-version = "py312"
 
 lint.select = ["ALL"]

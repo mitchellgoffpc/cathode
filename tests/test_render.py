@@ -40,7 +40,8 @@ class TestRender(unittest.TestCase):
 
     def test_render_styled_text(self) -> None:
         text = Text(f"{Colors.WHITE}this is one line\nthis is another line{Colors.END}")
-        assert render_once(text) == f"{Colors.WHITE}this is one line{Colors.END}    \n{Colors.WHITE}this is another line{Colors.END}"
+        expected = f"{Colors.WHITE}this is one line{Colors.END}    \n{Colors.WHITE}this is another line{Colors.END}"
+        assert render_once(text) == expected
 
     def test_width_types(self) -> None:
         test_cases: list[tuple[str, int | None, list]] = [
@@ -53,7 +54,8 @@ class TestRender(unittest.TestCase):
             with self.subTest(description=description):
                 box = Box(width=width, flex=Axis.HORIZONTAL)[(Text(text, width=width) for text, width, _ in _children)]
                 expected_box_width = width or sum(expected_width for _, _, expected_width in _children)
-                expected_result = ''.join(f'{text:<{expected_width}}' for text, _, expected_width in _children).ljust(expected_box_width)
+                joined = ''.join(f'{text:<{expected_width}}' for text, _, expected_width in _children)
+                expected_result = joined.ljust(expected_box_width)
                 assert render_once(box) == expected_result
 
     def test_layout_width_constraint(self) -> None:
@@ -75,7 +77,8 @@ class TestRenderMargin(unittest.TestCase):
             ("no margin", "Hello", 0, "Hello"),
             ("uniform margin", "Hello", 1, "       \n Hello \n       "),
             ("asymmetric margin", "Hi", {'top': 2, 'bottom': 0, 'left': 3, 'right': 1}, "      \n      \n   Hi "),
-            ("multiline with margin", "Line1\nLine2", {'top': 1, 'bottom': 1, 'left': 2, 'right': 2}, "         \n  Line1  \n  Line2  \n         "),
+            ("multiline with margin", "Line1\nLine2", {'top': 1, 'bottom': 1, 'left': 2, 'right': 2},
+                "         \n  Line1  \n  Line2  \n         "),
         ]
         for description, text_content, margin, expected in test_cases:
             with self.subTest(description=description):
@@ -89,7 +92,8 @@ class TestRenderBorder(unittest.TestCase):
             ("no border", "Hello", (), 0, "Hello"),
             ("full border", "Hi", ('top', 'bottom', 'left', 'right'), 0, "┌──┐\n│Hi│\n└──┘"),
             ("partial border", "Hi", ('top', 'left'), 0, "┌──\n│Hi"),
-            ("border with margin", "Hi", ('top', 'bottom', 'left', 'right'), 1, "      \n ┌──┐ \n │Hi│ \n └──┘ \n      "),
+            ("border with margin", "Hi", ('top', 'bottom', 'left', 'right'), 1,
+                "      \n ┌──┐ \n │Hi│ \n └──┘ \n      "),
         ]
         for description, text_content, border, margin, expected in test_cases:
             with self.subTest(description=description):

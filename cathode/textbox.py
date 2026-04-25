@@ -11,7 +11,7 @@ REMOVE_CONTROL_CHARS = dict.fromkeys(range(32)) | {0xa: 0xa, 0xd: 0xa}
 def is_stop_char(ch: str) -> bool:
     return ch in ' \t\n<>@/|&;(){}[]"\'`'
 
-# TODO: Feels silly to have two different wrap_lines implementations, can we replace this one with the 'real' one in styles.py?
+# TODO: Two wrap_lines implementations; can this be replaced with the 'real' one in styles.py?
 def wrap_lines(text: str, width: int, wrap: Wrap) -> Iterator[tuple[str, bool]]:
     if width <= 0:
         return
@@ -294,7 +294,8 @@ class TextBoxController(BaseController[TextBox]):
 
     def contents(self) -> list[Component | None]:
         if not self.text and self.props.placeholder:
-            color_fn = partial(Colors.apply, color=self.props.placeholder_color) if self.props.placeholder_color else Styles.dim
+            color_fn = (partial(Colors.apply, color=self.props.placeholder_color)
+                        if self.props.placeholder_color else Styles.dim)
             styled_text = Styles.inverse(self.props.placeholder[0]) + color_fn(self.props.placeholder[1:])
         else:
             cursor_pos = self.cursor_pos + self.text.count('\n', 0, self.cursor_pos)
@@ -319,5 +320,6 @@ class TextBoxController(BaseController[TextBox]):
                 under = text[cursor_pos:cursor_pos + 1] if cursor_pos < len(text) else ' '
                 styled_text = Colors.apply(before + Styles.inverse(under) + after, self.props.color)
 
-        self.text_ref = Text(styled_text, width=self.props.width, wrap=Wrap.EXACT if self.props.wrap is Wrap.EXACT else Wrap.WORDS_WITH_CURSOR)
+        wrap = Wrap.EXACT if self.props.wrap is Wrap.EXACT else Wrap.WORDS_WITH_CURSOR
+        self.text_ref = Text(styled_text, width=self.props.width, wrap=wrap)
         return [self.text_ref]

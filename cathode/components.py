@@ -54,7 +54,9 @@ class Element(Component):
     def chrome(self, axis: Axis) -> int:
         a: Side = 'left' if axis is Axis.HORIZONTAL else 'top'
         b: Side = 'right' if axis is Axis.HORIZONTAL else 'bottom'
-        return self.paddings[a] + self.paddings[b] + self.margins[a] + self.margins[b] + self.borders[a] + self.borders[b]
+        return (
+            self.paddings[a] + self.paddings[b] + self.margins[a] + self.margins[b] + self.borders[a] + self.borders[b]
+        )
 
     def contents(self) -> list[Component | None]:
         return self.children

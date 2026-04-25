@@ -76,7 +76,8 @@ class Styles:
     @staticmethod
     def hidden(text: str) -> str: return apply_style(text, start=Styles.HIDDEN, end=Styles.HIDDEN_END)
     @staticmethod
-    def strikethrough(text: str) -> str: return apply_style(text, start=Styles.STRIKETHROUGH, end=Styles.STRIKETHROUGH_END)
+    def strikethrough(text: str) -> str:
+        return apply_style(text, start=Styles.STRIKETHROUGH, end=Styles.STRIKETHROUGH_END)
 
 class Colors:
     BLACK = "\u001B[30m"
@@ -397,9 +398,11 @@ def wrap_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) -> str:
             pos += leading_newlines
             wrapped = False
             continue
-        if wrap in (Wrap.WORDS, Wrap.WORDS_WITH_CURSOR) and (leading_whitespace := len(plaintext) - len(plaintext.lstrip(' \t'))):
-            # This extremely janky code is to handle a cursor that's off the right side of the textbox boundry, since it needs to be capped at the edge
-            if wrapped and wrap is Wrap.WORDS_WITH_CURSOR and (cursor_pos := len(line) - len(line.lstrip(' \t'))) < leading_whitespace:
+        leading_whitespace = len(plaintext) - len(plaintext.lstrip(' \t'))
+        if wrap in (Wrap.WORDS, Wrap.WORDS_WITH_CURSOR) and leading_whitespace:
+            # Handles a cursor off the right side of the textbox boundary, capping it at the edge
+            cursor_pos = len(line) - len(line.lstrip(' \t'))
+            if wrapped and wrap is Wrap.WORDS_WITH_CURSOR and cursor_pos < leading_whitespace:
                 result.seek(result.tell() - 1)
                 result.write(ansi_slice(line, cursor_pos, cursor_pos + 1))
             if not wrapped:

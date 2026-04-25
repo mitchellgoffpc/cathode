@@ -25,18 +25,26 @@ class TestTextBoxWrapping(unittest.TestCase):
             ("cursor at end", "Hello", 5, 10, Wrap.EXACT, "Hello" + Styles.inverse(' ')),
             ("exact wrap at width boundary", "12345", 5, 5, Wrap.EXACT, "12345\n" + Styles.inverse(' ')),
             ("exact wrap cursor at line end", "1234567890", 5, 5, Wrap.EXACT, "12345\n" + Styles.inverse('6') + "7890"),
-            ("exact wrap cursor in second line", "1234567890", 7, 5, Wrap.EXACT, "12345\n67" + Styles.inverse('8') + "90"),
+            ("exact wrap cursor in second line", "1234567890", 7, 5, Wrap.EXACT,
+                "12345\n67" + Styles.inverse('8') + "90"),
             ("exact wrap with newline", "123\n456", 4, 10, Wrap.EXACT, "123 \n" + Styles.inverse('4') + "56"),
             ("word wrap no break needed", "Hello", 2, 10, Wrap.WORDS, "He" + Styles.inverse('l') + "lo"),
             ("word wrap at space", "Hello World", 6, 6, Wrap.WORDS, "Hello \n" + Styles.inverse('W') + "orld"),
-            ("word wrap at space + cursor, ", "Hello World", 5, 6, Wrap.WORDS, "Hello" + Styles.inverse(' ') + "\nWorld"),
-            ("word wrap at cursor before space", "At the ball", 6, 6, Wrap.WORDS, "At \nthe" + Styles.inverse(' ') + "\nball"),
+            ("word wrap at space + cursor, ", "Hello World", 5, 6, Wrap.WORDS,
+                "Hello" + Styles.inverse(' ') + "\nWorld"),
+            ("word wrap at cursor before space", "At the ball", 6, 6, Wrap.WORDS,
+                "At \nthe" + Styles.inverse(' ') + "\nball"),
             ("word wrap, cursor past end", "Hello    ", 8, 6, Wrap.WORDS, "Hello" + Styles.inverse(' ')),
-            ("word wrap long word breaks", "Supercalifragilistic", 10, 10, Wrap.WORDS, "Supercali\nf" + Styles.inverse('r') + "agilist\nic"),
-            ("cursor right after newline", "Hello\nWorld", 6, 10, Wrap.EXACT, "Hello \n" + Styles.inverse('W') + "orld"),
-            ("exact wrap multiple lines cursor end", "123456789", 9, 5, Wrap.EXACT, "12345\n6789" + Styles.inverse(' ')),
-            ("word wrap trailing spaces", "Hi       World", 5, 6, Wrap.WORDS, "Hi   " + Styles.inverse(' ') + "\nWorld"),
-            ("word wrap trailing spaces, cursor past end", "Hi       World", 7, 6, Wrap.WORDS, "Hi   " + Styles.inverse(' ') + "\nWorld"),
+            ("word wrap long word breaks", "Supercalifragilistic", 10, 10, Wrap.WORDS,
+                "Supercali\nf" + Styles.inverse('r') + "agilist\nic"),
+            ("cursor right after newline", "Hello\nWorld", 6, 10, Wrap.EXACT,
+                "Hello \n" + Styles.inverse('W') + "orld"),
+            ("exact wrap multiple lines cursor end", "123456789", 9, 5, Wrap.EXACT,
+                "12345\n6789" + Styles.inverse(' ')),
+            ("word wrap trailing spaces", "Hi       World", 5, 6, Wrap.WORDS,
+                "Hi   " + Styles.inverse(' ') + "\nWorld"),
+            ("word wrap trailing spaces, cursor past end", "Hi       World", 7, 6, Wrap.WORDS,
+                "Hi   " + Styles.inverse(' ') + "\nWorld"),
         ]
 
         for description, text, cursor_pos, width, wrap, expected_text in test_cases:
@@ -46,7 +54,8 @@ class TestTextBoxWrapping(unittest.TestCase):
                 textbox.cursor_pos = cursor_pos
                 text_elem = textbox.contents()[0]
                 assert isinstance(text_elem, Text)
-                assert text_elem.wrapped(width) == expected_text, f"Failed: {description}\nText: {repr(text)}\nCursor: {cursor_pos}\nWidth: {width}"
+                msg = f"Failed: {description}\nText: {text!r}\nCursor: {cursor_pos}\nWidth: {width}"
+                assert text_elem.wrapped(width) == expected_text, msg
 
     def test_textbox_width_limit(self) -> None:
         tree, root, textbox = create_tree(TextBox(width=1.0, wrap=Wrap.WORDS))
@@ -112,14 +121,22 @@ class TestTextBoxInputHandling(unittest.TestCase):
 
     def test_textbox_history_paging_keybindings(self) -> None:
         test_cases = [
-            ("move to newer history entry (page down)", "first", 5, ["\x1b[5~", "\x0e", "\x1b[B"], "second", 6, ["first", "second", "third"], 0),
-            ("move to older history entry (page up)", "third", 5, ["\x1b[6~", "\x10", "\x1b[A"], "second", 6, ["first", "second", "third"], 2),
-            ("page up at oldest entry no-op", "first", 5, ["\x1b[6~"], "first", 5, ["first", "second", "third"], 0),
-            ("page down at newest entry no-op", "third", 5, ["\x1b[5~"], "third", 5, ["first", "second", "third"], 2),
-            ("move to previous line no page up", "line1\nline2\nline3", 12, ["\x10", "\x1b[A"], "line1\nline2\nline3", 6, ["first", "second"], 1),
-            ("move to next line no page down", "line1\nline2\nline3", 0, ["\x0e", "\x1b[B"], "line1\nline2\nline3", 6, ["first", "second"], 0),
+            ("move to newer history entry (page down)", "first", 5, ["\x1b[5~", "\x0e", "\x1b[B"],
+                "second", 6, ["first", "second", "third"], 0),
+            ("move to older history entry (page up)", "third", 5, ["\x1b[6~", "\x10", "\x1b[A"],
+                "second", 6, ["first", "second", "third"], 2),
+            ("page up at oldest entry no-op", "first", 5, ["\x1b[6~"],
+                "first", 5, ["first", "second", "third"], 0),
+            ("page down at newest entry no-op", "third", 5, ["\x1b[5~"],
+                "third", 5, ["first", "second", "third"], 2),
+            ("move to previous line no page up", "line1\nline2\nline3", 12, ["\x10", "\x1b[A"],
+                "line1\nline2\nline3", 6, ["first", "second"], 1),
+            ("move to next line no page down", "line1\nline2\nline3", 0, ["\x0e", "\x1b[B"],
+                "line1\nline2\nline3", 6, ["first", "second"], 0),
         ]
-        for description, initial_text, initial_cursor, inputs, expected_text, expected_cursor, history, history_idx in test_cases:
+        for case in test_cases:
+            description, initial_text, initial_cursor, inputs = case[:4]
+            expected_text, expected_cursor, history, history_idx = case[4:]
             for ch in inputs:
                 with self.subTest(description=description, input=ch):
                     tree, root, textbox = create_tree(TextBox(width=20))
@@ -140,7 +157,9 @@ class TestTextBoxInputHandling(unittest.TestCase):
             ("kill region (Ctrl+W)", "Hello", 4, "\x17", "Ho", 1, 1, None, None, "ell"),
             ("yank (Ctrl+Y)", "Ho", 1, "\x19", "Hello", 4, None, None, "ell", None),
         ]
-        for description, initial_text, initial_cursor, inputs, expected_text, expected_cursor, mark, expected_mark, kill_buf, expected_kill_buf in test_cases:
+        for case in test_cases:
+            description, initial_text, initial_cursor, inputs, expected_text = case[:5]
+            expected_cursor, mark, expected_mark, kill_buf, expected_kill_buf = case[5:]
             with self.subTest(description=description):
                 textbox = TextBoxController(TextBox(width=20))
                 textbox.text = initial_text
