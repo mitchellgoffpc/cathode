@@ -1,0 +1,6 @@
+
+[testing]
+ruff
+ty
+pytest
+pre-commit

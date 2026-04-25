@@ -32,6 +32,7 @@ cathode is a simple python terminal UI library for building interactive CLI tool
 
 - Always run the linter, type checker, and tests before committing.
 - Run the linter with `ruff check .`, the typechecker with `ty check .`, and the tests with `pytest .`.
+- If `pytest .` passes but reports sandbox permission errors during terminal or process cleanup, rerun it with escalated permissions; cathode tests may need system calls that sandboxing blocks.
 - Use single-line commit messages in plain English.
 - Do not use conventional commit prefixes or add signatures (e.g. Co-Authored By)
 - Run `git add` and `git commit` sequentially (or in one chained command), not in parallel, to avoid `.git/index.lock` conflicts.

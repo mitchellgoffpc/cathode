@@ -1,0 +1,139 @@
+import time
+import unittest
+
+from cathode.components import Box, Text
+from cathode.layout import layout
+from cathode.styles import Axis, Colors, Wrap
+from cathode.tree import ElementTree, mount
+from tests.helpers import DeepTree, WideTree
+
+
+class TestLayout(unittest.TestCase):
+    def test_flex_layout(self) -> None:
+        test_cases: list[tuple[str, tuple, tuple, list[tuple], list[tuple]]] = [
+            # description, parent_spec, expected_parent_size, children, expected_layouts (x, y, width, height)
+            ("fixed widths", (Axis.HORIZONTAL, None, None), (30, 1), [('A', 10, None), ('B', 20, None)], [(0, 0, 10, 1), (10, 0, 20, 1)]),
+            ("flexible widths", (Axis.HORIZONTAL, None, None), (10, 1), [('Hello', None, None), ('World', None, None)], [(0, 0, 5, 1), (5, 0, 5, 1)]),
+            ("fractional widths", (Axis.HORIZONTAL, None, None), (100, 1), [('X', 0.25, None), ('Y', 0.75, None)], [(0, 0, 25, 1), (25, 0, 75, 1)]),
+            ("mixed widths", (Axis.HORIZONTAL, None, None), (60, 1),
+                [('Fixed', 10, None), ('Flex-12345', None, None), ('Frac', 0.5, None)],
+                [(0, 0, 10, 1), (10, 0, 10, 1), (20, 0, 40, 1)]),
+
+            ("fixed heights", (Axis.HORIZONTAL, None, None), (2, 5), [('A', None, 3), ('B', None, 5)], [(0, 0, 1, 3), (1, 0, 1, 5)]),
+            ("flexible heights", (Axis.HORIZONTAL, None, None), (3, 1), [('A', None, None), ('BB', None, None)], [(0, 0, 1, 1), (1, 0, 2, 1)]),
+            ("fractional heights", (Axis.HORIZONTAL, None, None), (2, 75), [('X', None, 0.25), ('Y', None, 0.75)], [(0, 0, 1, 25), (1, 0, 1, 75)]),
+            ("mixed heights", (Axis.HORIZONTAL, None, None), (13, 50),
+                [('Fixed', None, 5), ('Axis', None, None), ('Frac', None, 0.5)],
+                [(0, 0, 5, 5), (5, 0, 4, 1), (9, 0, 4, 50)]),
+
+            ("fixed widths", (Axis.VERTICAL, None, None), (20, 2), [('A', 10, None), ('B', 20, None)], [(0, 0, 10, 1), (0, 1, 20, 1)]),
+            ("flexible widths", (Axis.VERTICAL, None, None), (5, 2), [('Hello', None, None), ('World', None, None)], [(0, 0, 5, 1), (0, 1, 5, 1)]),
+            ("fractional widths", (Axis.VERTICAL, None, None), (75, 2), [('X', 0.25, None), ('Y', 0.75, None)], [(0, 0, 25, 1), (0, 1, 75, 1)]),
+            ("mixed widths", (Axis.VERTICAL, None, None), (50, 3),
+                [('Fixed', 5, None), ('Axis', None, None), ('Frac', 0.5, None)],
+                [(0, 0, 5, 1), (0, 1, 4, 1), (0, 2, 50, 1)]),
+
+            ("fixed heights", (Axis.VERTICAL, None, None), (1, 8), [('A', None, 3), ('B', None, 5)], [(0, 0, 1, 3), (0, 3, 1, 5)]),
+            ("flexible heights", (Axis.VERTICAL, None, None), (2, 2), [('A', None, None), ('BB', None, None)], [(0, 0, 1, 1), (0, 1, 2, 1)]),
+            ("fractional heights", (Axis.VERTICAL, None, None), (1, 100), [('X', None, 0.25), ('Y', None, 0.75)], [(0, 0, 1, 25), (0, 25, 1, 75)]),
+            ("mixed heights", (Axis.VERTICAL, None, None), (10, 55),
+                [('Fixed', None, 10), ('Flex-12345', None, None), ('Frac', None, 0.5)],
+                [(0, 0, 5, 10), (0, 10, 10, 1), (0, 11, 4, 44)]),
+
+            ("empty child", (Axis.HORIZONTAL, None, None), (0, 0), [('', None, None)], [(0, 0, 0, 0)]),
+            ("text width constraint", (Axis.HORIZONTAL, None, None), (20, 2), [('This text is longer than twenty chars', 20, None)], [(0, 0, 20, 2)]),
+            ("child text width constraint", (Axis.HORIZONTAL, 20, None), (20, 2), [('This text is longer than twenty chars', None, None)], [(0, 0, 20, 2)]),
+            ("child box width constraint", (Axis.HORIZONTAL, 20, None), (20, 1), [('A', 10, None), ('B', 20, None)], [(0, 0, 10, 1), (10, 0, 10, 1)]),
+        ]
+        for description, (flex, width, height), (expected_width, expected_height), children, expected_layouts in test_cases:
+            with self.subTest(flex=flex, description=description):
+                texts = [Text(text, width=width, height=height, wrap=Wrap.EXACT) for text, width, height in children]
+                box = Box(flex=flex, width=width, height=height)[texts]
+                tree = ElementTree(box)
+                mount(tree, box)
+                layout(tree, box, 100, 100)
+
+                assert tree.widths[box.uuid] == expected_width
+                assert tree.heights[box.uuid] == expected_height
+                for child, (x, y, w, h) in zip(texts, expected_layouts, strict=True):
+                    assert tree.widths[child.uuid] == w
+                    assert tree.heights[child.uuid] == h
+                    assert tree.offsets[child.uuid].x == x
+                    assert tree.offsets[child.uuid].y == y
+
+    def test_nested_flex_layout(self) -> None:
+        test_cases = [
+            # description, outer_box_spec, inner_box_spec, text, expected_outer_size, expected_text_size
+            ("fixed width", (None, None), (None, None), ('A', 10, None), (10, 1), (10, 1)),
+            ("fixed height", (None, None), (None, None), ('A', None, 3), (1, 3), (1, 3)),
+            ("fractional width", (None, None), (None, None), ('Hello', 1.0, None), (100, 1), (100, 1)),
+            ("fractional height", (None, None), (None, None), ('X', None, 0.5), (1, 50), (1, 50)),
+            ("nested fractional width", (None, None), (0.5, None), ('Hello', 0.5, None), (50, 1), (25, 1)),
+            ("nested fractional height", (None, None), (None, 0.5), ('X', None, 0.5), (1, 50), (1, 25)),
+            ("child width constraint", (20, None), (None, None), ('Wide', 30, None), (20, 1), (20, 1)),
+            ("child height constraint", (None, 3), (None, None), ('Tall', None, 5), (4, 3), (4, 3)),
+        ]
+        for description, (outer_w, outer_h), (inner_w, inner_h), (text, w, h), (exp_outer_w, exp_outer_h), (exp_text_w, exp_text_h) in test_cases:
+            with self.subTest(description=description):
+                text_elem = Text(text, width=w, height=h)
+                outer_box = Box(width=outer_w, height=outer_h)[Box(width=inner_w, height=inner_h)[text_elem]]
+                tree = ElementTree(outer_box)
+                mount(tree, outer_box)
+                layout(tree, outer_box, 100, 100)
+
+                assert tree.widths[outer_box.uuid] == exp_outer_w
+                assert tree.heights[outer_box.uuid] == exp_outer_h
+                assert tree.widths[text_elem.uuid] == exp_text_w
+                assert tree.heights[text_elem.uuid] == exp_text_h
+
+    def test_chrome_layout(self) -> None:
+        def make_chrome(m: int, b: int, p: int) -> dict:
+            return {'margin': m, 'border': ('top', 'bottom', 'left', 'right') if b else (), 'padding': p}
+
+        test_cases: list[tuple[str, Axis, tuple, tuple, list[tuple], list[tuple]]] = [
+            # description, flex, parent_chrome, expected_parent_size, children [(text, width, height, chrome)], expected_layouts (x, y, width, height)
+            ("parent chrome h", Axis.HORIZONTAL, (2, 1, 3), (100, 13), [('A', 1.0, None, (0, 0, 0))], [(6, 6, 88, 1)]),
+            ("parent chrome v", Axis.VERTICAL, (2, 1, 3), (13, 100), [('A', None, 1.0, (0, 0, 0))], [(6, 6, 1, 88)]),
+            ("child chrome h, fixed width", Axis.HORIZONTAL, (0, 0, 0), (40, 13),
+                [('A', 20, None, (2, 1, 3)), ('B', 20, None, (0, 0, 0))],
+                [(0, 0, 20, 13), (20, 0, 20, 1)]),
+            ("child chrome v, fixed height", Axis.VERTICAL, (0, 0, 0), (13, 40),
+                [('A', None, 20, (2, 1, 3)), ('B', None, 20, (0, 0, 0))],
+                [(0, 0, 13, 20), (0, 20, 1, 20)]),
+            ("child chrome h, flexible width", Axis.HORIZONTAL, (0, 0, 0), (14, 13),
+                [('A', None, None, (2, 1, 3)), ('B', None, None, (0, 0, 0))],
+                [(0, 0, 13, 13), (13, 0, 1, 1)]),
+            ("child chrome v, fixed height", Axis.VERTICAL, (0, 0, 0), (13, 14),
+                [('A', None, None, (2, 1, 3)), ('B', None, None, (0, 0, 0))],
+                [(0, 0, 13, 13), (0, 13, 1, 1)]),
+            ("child chrome, tight packing", Axis.HORIZONTAL, (0, 0, 0), (3, 3), [(Colors.hex('A', '#333333'), 3, None, (1, 0, 0))], [(0, 0, 3, 3)]),
+        ]
+        for description, flex, chrome, (expected_w, expected_h), children, expected_layouts in test_cases:
+            with self.subTest(flex=flex, description=description):
+                texts = [Text(text, width=width, height=height, **make_chrome(*chrome)) for text, width, height, chrome in children]
+                box = Box(flex=flex, **make_chrome(*chrome))[texts]
+                tree = ElementTree(box)
+                mount(tree, box)
+                layout(tree, box, 100, 100)
+
+                assert tree.widths[box.uuid] == expected_w
+                assert tree.heights[box.uuid] == expected_h
+                for child, (x, y, w, h) in zip(texts, expected_layouts, strict=True):
+                    assert tree.offsets[child.uuid].x == x
+                    assert tree.offsets[child.uuid].y == y
+                    assert tree.widths[child.uuid] == w
+                    assert tree.heights[child.uuid] == h
+
+
+class TestLayoutPerformance(unittest.TestCase):
+    def test_layout_performance(self) -> None:
+        for widget in (WideTree, DeepTree):
+            with self.subTest(widget=widget.__name__):
+                root = Box()[widget()]
+                tree = ElementTree(root)
+                mount(tree, root)
+
+                start = time.perf_counter()
+                layout(tree, root, 200)
+                elapsed = time.perf_counter() - start
+                assert elapsed < 0.01, f"Layout for {widget.__name__} took {elapsed * 1000:.2f}ms, expected <10ms"
