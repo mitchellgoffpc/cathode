@@ -9,18 +9,21 @@ from cathode.tree import ElementTree, Offset
 def layout(
     tree: ElementTree, element: Element, available_width: int | None = None, available_height: int | None = None,
 ) -> None:
+    """Compute and cache widths, heights, and offsets for `element` and its descendants."""
     collapse_tree(tree, element)
     compute_lengths(tree, element, Axis.HORIZONTAL, available_width)
     compute_lengths(tree, element, Axis.VERTICAL, available_height)
     compute_offsets(tree, element)
 
 def collapse_tree(tree: ElementTree, element: Element) -> None:
+    """Populate `tree.collapsed_children` by flattening widgets out of `element`'s subtree."""
     tree.collapsed_children[element.uuid] = list(chain.from_iterable(
         collapse_children(tree, child) for child in tree.children[element.uuid]))
     for child in tree.collapsed_children[element.uuid]:
         collapse_tree(tree, child)
 
 def collapse_children(tree: ElementTree, component: Component | None) -> list[Element]:
+    """Return the visible `Element` descendants of `component`, descending through widgets."""
     match component:
         case None: return []
         case Widget():
@@ -29,6 +32,7 @@ def collapse_children(tree: ElementTree, component: Component | None) -> list[El
         case _: raise ValueError(f"Unknown component type: {type(component)}")
 
 def compute_lengths(tree: ElementTree, element: Element, axis: Axis, available_length: int | None = None) -> None:
+    """Resolve and cache the length of `element` and its children along `axis`."""
     flex = element.flex if isinstance(element, Box) else Axis.VERTICAL
     collapsed = tree.collapsed_children[element.uuid]
     child_lengths = [child.length(axis) for child in collapsed]
@@ -89,6 +93,7 @@ def compute_lengths(tree: ElementTree, element: Element, axis: Axis, available_l
         min(available_length, final_length) if available_length is not None else final_length)
 
 def compute_offsets(tree: ElementTree, element: Element) -> None:
+    """Compute and cache `(x, y)` offsets for `element` and its descendants."""
     flex = element.flex if isinstance(element, Box) else Axis.VERTICAL
     x_offset = element.margins['left'] + element.borders['left'] + element.paddings['left']
     y_offset = element.margins['top'] + element.borders['top'] + element.paddings['top']

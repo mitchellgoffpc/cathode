@@ -213,10 +213,12 @@ XTERM_COLORS: dict[int, tuple[int, int, int]] = (
     {232 + i: (8 + 10 * i, 8 + 10 * i, 8 + 10 * i) for i in range(24)})
 
 def srgb_to_linear(value: int) -> float:
+    """Convert an sRGB 8-bit channel `value` to linear-light intensity in `[0, 1]`."""
     c = value / 255.0
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
 def rgb_to_xyz(r: int, g: int, b: int) -> tuple[float, float, float]:
+    """Convert sRGB 8-bit channels to CIE XYZ using the D65 illuminant."""
     x, y, z = srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b)
     return (
         x * 0.4124 + y * 0.3576 + z * 0.1805,
@@ -224,6 +226,7 @@ def rgb_to_xyz(r: int, g: int, b: int) -> tuple[float, float, float]:
         x * 0.0193 + y * 0.1192 + z * 0.9505)
 
 def xyz_to_lab(x: float, y: float, z: float) -> tuple[float, float, float]:
+    """Convert a CIE XYZ color to CIE L*a*b* using the D65 reference white."""
     xr, yr, zr = x / 0.95047, y / 1.00000, z / 1.08883
     def f(t: float) -> float:
         return t ** (1.0 / 3.0) if t > 0.008856 else 7.787 * t + 16.0 / 116.0
@@ -231,6 +234,7 @@ def xyz_to_lab(x: float, y: float, z: float) -> tuple[float, float, float]:
     return 116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz)
 
 def perceptual_distance(a: tuple[int, int, int], b: tuple[int, int, int]) -> float:
+    """Return the CIE76 Lab Euclidean distance between two RGB colors."""
     x1, y1, z1 = rgb_to_xyz(*a)
     x2, y2, z2 = rgb_to_xyz(*b)
     l1, a1, b1 = xyz_to_lab(x1, y1, z1)
@@ -239,9 +243,11 @@ def perceptual_distance(a: tuple[int, int, int], b: tuple[int, int, int]) -> flo
     return (dl * dl + da * da + db * db) ** 0.5
 
 def rgb_to_ansi256(red: int, green: int, blue: int) -> int:
+    """Return the xterm 256-color index closest to the given RGB triple."""
     return min(XTERM_COLORS, key=lambda i: perceptual_distance(XTERM_COLORS[i], (red, green, blue)))
 
 def ansi256_to_ansi(code: int) -> int:
+    """Approximate an xterm 256-color `code` as the nearest 16-color ANSI code."""
     if code < 8:
         return 30 + code
     if code < 16:
@@ -269,6 +275,7 @@ def ansi256_to_ansi(code: int) -> int:
     return result
 
 def rgb_to_best_ansi(red: int, green: int, blue: int, *, offset: int = 0) -> str:
+    """Return the highest-fidelity ANSI escape for the RGB triple supported by the current terminal."""
     if ANSI_16M_SUPPORT:
         return ansi16m(red, green, blue, offset=offset)
     elif ANSI_256_SUPPORT:
@@ -279,6 +286,7 @@ def rgb_to_best_ansi(red: int, green: int, blue: int, *, offset: int = 0) -> str
         return ansi16(code, offset=offset)
 
 def hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
+    """Parse a 3- or 6-digit hex color string into an `(r, g, b)` triple."""
     matches = re.search(r'[a-f\d]{6}|[a-f\d]{3}', str(hex_str), re.IGNORECASE)
     if not matches:
         return (0, 0, 0)
@@ -291,9 +299,11 @@ def hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
     return (integer >> 16) & 0xFF, (integer >> 8) & 0xFF, integer & 0xFF
 
 def hex_to_best_ansi(hex_str: str, *, offset: int = 0) -> str:
+    """Return the best ANSI escape for the hex color `hex_str` supported by the terminal."""
     return rgb_to_best_ansi(*hex_to_rgb(hex_str), offset=offset)
 
 def color_to_ansi(color: Color | None, *, background: bool) -> str:
+    """Return the foreground or background ANSI escape for `color`, or empty string for `None`."""
     offset = ANSI_BACKGROUND_OFFSET if background else 0
     match color:
         case None: return ''
@@ -305,24 +315,31 @@ def color_to_ansi(color: Color | None, *, background: bool) -> str:
 # ANSI escape helpers
 
 def apply_style(text: str, start: str, end: str) -> str:
+    """Wrap `text` between the `start` and `end` escape sequences, or return unchanged if `start` is empty."""
     return f"{start}{text}{end}" if start else text
 
 def ansi16(code: int, *, offset: int = 0) -> str:
+    """Return the 16-color ANSI escape for `code`, shifted by `offset` for backgrounds."""
     return f"\u001B[{code + offset}m"
 
 def ansi256(code: int, *, offset: int = 0) -> str:
+    """Return the 256-color ANSI escape for `code`, shifted by `offset` for backgrounds."""
     return f"\u001B[{38 + offset};5;{code}m"
 
 def ansi16m(red: int, green: int, blue: int, *, offset: int = 0) -> str:
+    """Return the 24-bit truecolor ANSI escape for the given RGB triple."""
     return f"\u001B[{38 + offset};2;{red};{green};{blue}m"
 
 def ansi_len(text: str) -> int:
+    """Return the visual width of `text` in columns, ignoring ANSI escapes and counting wide chars as 2."""
     return sum(2 if unicodedata.east_asian_width(c) in 'FW' else 1 for c in ansi_strip(text))
 
 def ansi_strip(text: str) -> str:
+    """Return `text` with all ANSI SGR escape sequences removed."""
     return re.sub(r'\u001B\[[0-9;]+m', '', text)
 
 def ansi_slice(string: str, start: int, end: int) -> str:
+    """Return the substring of `string` between visual columns `start` and `end`, preserving styling."""
     style_starts_to_stops = {}
     style_stops_to_starts = defaultdict(list)
     for attr_name, attr_value in Styles.__dict__.items():
@@ -425,6 +442,7 @@ def ansi_slice(string: str, start: int, end: int) -> str:
     return ''.join(result) + reset
 
 def wrap_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) -> str:
+    """Wrap `content` to `max_width` columns using the strategy specified by `wrap`."""
     if wrap is Wrap.WORDS_WITH_CURSOR:
         max_width -= 1
     if max_width == 0:

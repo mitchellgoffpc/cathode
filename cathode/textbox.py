@@ -10,10 +10,12 @@ from cathode.styles import Axis, Color, Colors, Styles, Wrap
 REMOVE_CONTROL_CHARS = dict.fromkeys(range(32)) | {0xa: 0xa, 0xd: 0xa}
 
 def is_stop_char(ch: str) -> bool:
+    """Return whether `ch` is a word-boundary character used by word-wise navigation."""
     return ch in ' \t\n<>@/|&;(){}[]"\'`'
 
 # TODO: Two wrap_lines implementations; can this be replaced with the 'real' one in styles.py?
 def wrap_lines(text: str, width: int, wrap: Wrap) -> Iterator[tuple[str, bool]]:
+    """Yield `(line, is_hard_break)` tuples wrapping `text` to `width` columns under `wrap` mode."""
     if width <= 0:
         return
 

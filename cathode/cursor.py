@@ -41,18 +41,21 @@ exit_alternative_screen = f"{ESC}?1049l"
 # Show / hide cursor
 
 def show_cursor(writable_stream: TextIO = sys.stderr) -> None:
+    """Show the terminal cursor on `writable_stream` if it is a TTY."""
     if not hasattr(writable_stream, 'isatty') or not writable_stream.isatty():
         return
     writable_stream.write(cursor_show)
     writable_stream.flush()
 
 def hide_cursor(writable_stream: TextIO = sys.stderr) -> None:
+    """Hide the terminal cursor on `writable_stream` if it is a TTY."""
     if not hasattr(writable_stream, 'isatty') or not writable_stream.isatty():
         return
     writable_stream.write(cursor_hide)
     writable_stream.flush()
 
 def show_cursor_on_exit() -> None:
+    """Re-show the cursor on stderr; intended for `atexit` registration."""
     sys.stderr.write(cursor_show)
     sys.stderr.flush()
 
@@ -60,11 +63,13 @@ def show_cursor_on_exit() -> None:
 # Move cursor
 
 def cursor_to(x: int, y: int | None = None) -> str:
+    """Return the escape sequence to move the cursor to absolute column `x` and optional row `y`."""
     if y is None:
         return f"{ESC}{x + 1}G"
     return f"{ESC}{y + 1}{SEP}{x + 1}H"
 
 def cursor_move(x: int, y: int = 0) -> str:
+    """Return the escape sequence to move the cursor by `(x, y)` columns and rows relatively."""
     return_value = ''
 
     if x < 0:
@@ -80,18 +85,23 @@ def cursor_move(x: int, y: int = 0) -> str:
     return return_value
 
 def cursor_up(count: int = 1) -> str:
+    """Return the escape sequence to move the cursor up `count` rows."""
     return f"{ESC}{count}A"
 
 def cursor_down(count: int = 1) -> str:
+    """Return the escape sequence to move the cursor down `count` rows."""
     return f"{ESC}{count}B"
 
 def cursor_forward(count: int = 1) -> str:
+    """Return the escape sequence to move the cursor forward `count` columns."""
     return f"{ESC}{count}C"
 
 def cursor_backward(count: int = 1) -> str:
+    """Return the escape sequence to move the cursor backward `count` columns."""
     return f"{ESC}{count}D"
 
 def erase_lines(count: int) -> str:
+    """Return the escape sequence to erase `count` lines upward from the cursor."""
     clear = ''
     for i in range(count):
         clear += erase_line + (cursor_up() if i < count - 1 else '')
@@ -100,6 +110,7 @@ def erase_lines(count: int) -> str:
     return clear
 
 def link(text: str, url: str) -> str:
+    """Return an OSC 8 hyperlink escape sequence rendering `text` as a clickable link to `url`."""
     return f"{OSC}8{SEP}{SEP}{url}{BEL}{text}{OSC}8{SEP}{SEP}{BEL}"
 
 

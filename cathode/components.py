@@ -20,6 +20,7 @@ Spacing = int | dict[Side, int]
 Length = int | float | None
 
 def get_spacing_dict(spacing: Spacing) -> dict[Side, int]:
+    """Normalize a `Spacing` value into a dict mapping each side to its integer spacing."""
     assert isinstance(spacing, (int, dict)), "Spacing must be an int or a dict with side keys"
     return {side: spacing if isinstance(spacing, int) else spacing.get(side, 0) for side in get_args(Side)}
 

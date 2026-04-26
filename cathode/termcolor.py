@@ -31,11 +31,13 @@ XTERM_16 = [
 ]
 
 def terminal_fg_color(timeout: float = 0.05) -> tuple[int, int, int] | None:
+    """Query the terminal's foreground color via OSC 10, returning an RGB triple or `None`."""
     if spec := _query_osc_color(10, timeout=timeout) or _colorfgbg()[0]:
         return _parse_color_spec(spec)
     return None
 
 def terminal_bg_color(timeout: float = 0.05) -> tuple[int, int, int] | None:
+    """Query the terminal's background color via OSC 11, returning an RGB triple or `None`."""
     if spec := _query_osc_color(11, timeout=timeout) or _colorfgbg()[1]:
         return _parse_color_spec(spec)
     return None

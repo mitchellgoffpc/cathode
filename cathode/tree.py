@@ -58,6 +58,7 @@ class ElementTree:
 # Utility functions
 
 def depth(tree: ElementTree, node: Component) -> int:
+    """Return the number of ancestors between `node` and the tree root."""
     depth = 0
     while node is not tree.root:
         node = tree.nodes[tree.parents[node.uuid]]
@@ -66,6 +67,7 @@ def depth(tree: ElementTree, node: Component) -> int:
 
 # Propogate input to a component and its subtree
 def propogate(tree: ElementTree, node: Component, value: Any, event_type: str) -> None:
+    """Dispatch a `handle_<event_type>` event with `value` to `node` and every widget below it."""
     if isinstance(node, Widget):
         getattr(node.controller, f'handle_{event_type}')(value)
     for child in tree.children.get(node.uuid, []):
@@ -74,6 +76,7 @@ def propogate(tree: ElementTree, node: Component, value: Any, event_type: str) -
 
 # Add a component and all its children to the tree
 def mount(tree: ElementTree, component: Component) -> None:
+    """Insert `component` and its subtree into `tree`, instantiating widget controllers along the way."""
     if isinstance(component, Widget):
         component.controller = component.Controller(component)
         component.controller.handle_mount(tree)
@@ -87,6 +90,7 @@ def mount(tree: ElementTree, component: Component) -> None:
 
 # Remove a component and all its children from the tree
 def unmount(tree: ElementTree, component: Component) -> None:
+    """Remove `component` and its descendants from `tree`, unmounting widgets bottom-up."""
     for child in tree.children[component.uuid]:
         if child:
             unmount(tree, child)
@@ -101,6 +105,7 @@ def unmount(tree: ElementTree, component: Component) -> None:
 
 # Update a component's subtree
 def update(tree: ElementTree, component: Component) -> None:
+    """Reconcile `component`'s subtree against its current `contents()`, mounting and unmounting children."""
     uuid = component.uuid
     new_contents = component.contents()
     old_contents = tree.children[uuid]

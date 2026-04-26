@@ -22,6 +22,7 @@ CONTROL_SEQ_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z~]?|\x1b.|[\x00-\x1f\x7f]')
 
 # Input parsing
 def split_input_sequence(sequence: str) -> list[str]:
+    """Split a raw input string into individual characters and ANSI control sequences."""
     chunks: list[str] = []
     last = 0
     for match in CONTROL_SEQ_RE.finditer(sequence):
@@ -36,6 +37,7 @@ def split_input_sequence(sequence: str) -> list[str]:
 # Context manager to set O_NONBLOCK on a file descriptor
 @contextmanager
 def nonblocking(fd: int) -> Iterator[None]:
+    """Context manager that sets `O_NONBLOCK` on `fd` for the duration of the block."""
     original_fl = fcntl.fcntl(fd, fcntl.F_GETFL)
     try:
         fcntl.fcntl(fd, fcntl.F_SETFL, original_fl | os.O_NONBLOCK)
@@ -47,6 +49,7 @@ def nonblocking(fd: int) -> Iterator[None]:
 # Rendering logic
 
 def apply_spacing(rows: list[str], width: int, spacing: dict[Side, int]) -> list[str]:
+    """Pad `rows` with blank space according to the per-side `spacing` map."""
     left = ' ' * spacing['left']
     right = ' ' * spacing['right']
     vertical = ' ' * (width + spacing['left'] + spacing['right'])
@@ -55,6 +58,7 @@ def apply_spacing(rows: list[str], width: int, spacing: dict[Side, int]) -> list
 def apply_borders(
     rows: list[str], width: int, borders: set[Side], border_style: BorderStyle, border_color: Color | None,
 ) -> list[str]:
+    """Draw `border_style` glyphs on the requested sides of `rows`, optionally colored."""
     if not borders:
         return rows
     color_code = color_to_ansi(border_color, background=False)
@@ -75,6 +79,7 @@ def apply_borders(
     return result
 
 def apply_chrome(rows: list[str], content_width: int, element: Element) -> list[str]:
+    """Wrap `rows` with `element`'s padding, background, borders, and margin."""
     padded_width = content_width + element.paddings['left'] + element.paddings['right']
     bordered_width = padded_width + element.borders['left'] + element.borders['right']
     rows = apply_spacing(rows, content_width, element.paddings)
@@ -117,12 +122,14 @@ def _render(tree: ElementTree, element: Element) -> list[str]:
     return apply_chrome(rows, content_width, element)
 
 def render(tree: ElementTree, element: Element) -> str:
+    """Return the fully rendered string for `element` based on cached layout in `tree`."""
     return '\n'.join(_render(tree, element))
 
 
 # Main render loop
 
 async def render_root(_root: Component) -> None:
+    """Run the interactive render loop, mounting `_root` and dispatching input until exit."""
     hide_cursor()
 
     root = _root if isinstance(_root, Element) else Box()[_root]  # Root component needs to be an element
