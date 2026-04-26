@@ -73,6 +73,7 @@ class TextBoxController(BaseController[TextBox]):
     mark: int | None = None
 
     def __init__(self, props: TextBox) -> None:
+        """Initialize buffer, history, and undo stack from the textbox `props`."""
         super().__init__(props)
         self.history = (props.history or []) + [props.text or '']
         self.history_idx = len(self.history) - 1

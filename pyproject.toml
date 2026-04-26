@@ -36,9 +36,8 @@ lint.select = ["ALL"]
 lint.ignore = [
     "ARG", "ASYNC", "BLE", "C", "EM", "ERA", "FBT", "PERF", "PLR", "Q", "RET", "RUF", "TC", "TD", "TRY",
     "ANN401", "COM812", "E701", "FIX002", "N802", "PT018", "S101", "S310",
-    "D106", "D107",
 ]
 lint.pydocstyle.convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["D102", "D103"]
+"tests/**" = ["D102", "D103", "D106"]

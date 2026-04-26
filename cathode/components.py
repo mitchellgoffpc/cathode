@@ -143,6 +143,7 @@ class BaseController(Generic[ComponentType]):
                     return
 
     def __init__(self, props: ComponentType) -> None:
+        """Initialize the controller with the widget `props` it manages."""
         self.props = props
 
     def __setattr__(self, key: str, value: Any) -> None:

@@ -17,6 +17,7 @@ class ElementTree:
     """Mutable tree of mounted components with cached layout, parents, and dirty tracking."""
 
     def __init__(self, root: Component) -> None:
+        """Create an empty tree rooted at `root`."""
         self.root = root
         self.nodes: dict[UUID, Component] = {}
         self.parents: dict[UUID, UUID] = {}
