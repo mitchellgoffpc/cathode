@@ -1,3 +1,4 @@
+"""cathode is a Python terminal UI library for building interactive CLI tools."""
 from cathode.components import BaseController, Box, Component, Element, Text, Widget
 from cathode.render import render_root
 from cathode.styles import Axis, Borders, Colors, Styles, ansi_len, ansi_slice, wrap_lines
