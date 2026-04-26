@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from cathode.tree import ElementTree
 
 ComponentType = TypeVar('ComponentType', bound='Widget')
+T = TypeVar('T')
 
 Side = Literal['top', 'bottom', 'left', 'right']
 Spacing = int | dict[Side, int]
@@ -127,10 +128,31 @@ class Widget(Component):
         return self.controller.contents()
 
 
-class BaseController(Generic[ComponentType]):
-    """Base class for widget controllers; subclasses define state and produce child components."""
+class _StateField(Generic[T]):
+    def __init__(self, default: T) -> None:
+        self.default = default
 
-    state: list[str] = []
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.attr = f'_state_{name}'
+
+    def __get__(self, instance: Any, owner: type | None = None) -> T:
+        if instance is None:
+            return self  # ty: ignore[invalid-return-type]
+        return getattr(instance, self.attr, self.default)
+
+    def __set__(self, instance: Any, value: T) -> None:
+        setattr(instance, self.attr, value)
+        instance.set_dirty()
+
+
+def State(default: T) -> T:
+    """Declare a reactive controller field; assigning to it marks the controller dirty."""
+    return _StateField(default)  # ty: ignore[invalid-return-type]
+
+
+class BaseController(Generic[ComponentType]):
+    """Base class for widget controllers; subclasses declare state via `State` and produce child components."""
+
     tree: ElementTree | None = None
 
     def __init_subclass__(cls: type[BaseController[ComponentType]], *args: Any, **kwargs: Any) -> None:
@@ -145,12 +167,6 @@ class BaseController(Generic[ComponentType]):
     def __init__(self, props: ComponentType) -> None:
         """Initialize the controller with the widget `props` it manages."""
         self.props = props
-
-    def __setattr__(self, key: str, value: Any) -> None:
-        """Set an attribute and mark the controller dirty if `key` is in declared `state`."""
-        if key in self.state:
-            self.set_dirty()
-        super().__setattr__(key, value)
 
     @property
     def mounted(self) -> bool:

@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from functools import partial
 
-from cathode.components import BaseController, Component, Length, Text, Widget
+from cathode.components import BaseController, Component, Length, State, Text, Widget
 from cathode.styles import Axis, Color, Colors, Styles, Wrap
 
 REMOVE_CONTROL_CHARS = dict.fromkeys(range(32)) | {0xa: 0xa, 0xd: 0xa}
@@ -66,11 +66,12 @@ class TextBox(Widget):
 class TextBoxController(BaseController[TextBox]):
     """Controller backing `TextBox`; manages buffer state, cursor, history, and key bindings."""
 
-    state = ['_text', '_cursor_pos', 'history', 'history_idx', 'mark']
-    _text = ''
-    _cursor_pos = 0
+    _text: str = State('')
+    _cursor_pos: int = State(0)
+    history: list[str] = State([])
+    history_idx: int = State(0)
+    mark: int | None = State(None)
     kill_buffer = ''
-    mark: int | None = None
 
     def __init__(self, props: TextBox) -> None:
         """Initialize buffer, history, and undo stack from the textbox `props`."""

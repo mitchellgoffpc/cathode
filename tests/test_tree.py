@@ -54,7 +54,7 @@ class TestTree(unittest.TestCase):
         assert tree.children == {parent.uuid: [box], box.uuid: [child], child.uuid: [text], text.uuid: []}
         assert text.text == "Child value: 0"
 
-        parent.controller.child_value = 1
+        parent.controller.child_value = 1  # ty: ignore[unresolved-attribute]
         update(tree, parent)
 
         _, box2, child2, text2 = toposort(tree)
@@ -66,7 +66,7 @@ class TestTree(unittest.TestCase):
         assert tree.children == {parent.uuid: [box2], box2.uuid: [child2], child2.uuid: [text2], text2.uuid: []}
         assert text2.text == "Child value: 1"
 
-        parent.controller.child_value = 1
+        parent.controller.child_value = 1  # ty: ignore[unresolved-attribute]
         update(tree, parent)
 
         _, box3, child3, text3 = toposort(tree)
@@ -76,7 +76,7 @@ class TestTree(unittest.TestCase):
         assert tree.parents == {box3.uuid: parent.uuid, child3.uuid: box3.uuid, text3.uuid: child3.uuid}
         assert tree.children == {parent.uuid: [box3], box3.uuid: [child3], child3.uuid: [text3], text3.uuid: []}
 
-        parent.controller.child_value = None
+        parent.controller.child_value = None  # ty: ignore[unresolved-attribute]
         update(tree, parent)
 
         _, box4 = toposort(tree)

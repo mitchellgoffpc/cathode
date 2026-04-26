@@ -1,5 +1,5 @@
 """cathode is a Python terminal UI library for building interactive CLI tools."""
-from cathode.components import BaseController, Box, Component, Element, Text, Widget
+from cathode.components import BaseController, Box, Component, Element, State, Text, Widget
 from cathode.render import render_root
 from cathode.styles import Axis, Borders, Colors, Styles, ansi_len, ansi_slice, wrap_lines
 from cathode.termcolor import terminal_bg_color, terminal_fg_color
@@ -16,10 +16,11 @@ class UI:
     Box = Box
     Widget = Widget
     Controller = BaseController
+    State = staticmethod(State)
     TextBox = TextBox
 
 __all__ = [
-    'UI', 'ElementTree', 'Component', 'Element', 'Text', 'Box', 'Widget', 'Controller', 'TextBox',
+    'UI', 'ElementTree', 'Component', 'Element', 'Text', 'Box', 'Widget', 'Controller', 'State', 'TextBox',
     'Axis', 'Borders', 'Colors', 'Styles', 'ansi_len', 'ansi_slice', 'wrap_lines',
     'terminal_bg_color', 'terminal_fg_color',
     'render_root',
