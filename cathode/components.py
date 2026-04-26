@@ -50,12 +50,14 @@ class Element(Component):
     visible: bool = field(default=True, kw_only=True)
 
     def __post_init__(self) -> None:
+        """Normalize spacing fields and initialize the children list."""
         self.margins = get_spacing_dict(self.margin)
         self.paddings = get_spacing_dict(self.padding)
         self.borders = {side: int(side in self.border) for side in get_args(Side)}
         self.children: list[Component | None] = []
 
     def __getitem__(self, args: Component | Iterable[Component | None] | None) -> Self:
+        """Assign `args` as the element's children using the `element[child, ...]` syntax."""
         self.children = [args] if isinstance(args, Component) else list(args) if args else []
         return self
 
@@ -83,10 +85,12 @@ class Text(Element):
     wrap: Wrap = field(default=Wrap.WORDS, kw_only=True)
 
     def __post_init__(self) -> None:
+        """Initialize the element and the per-width wrap cache."""
         super().__post_init__()
         self._wrap_cache: dict[int, str] = {}
 
     def __getitem__(self, args: Component | Iterable[Component | None] | None) -> Self:
+        """Disallow assigning children to a leaf `Text` element."""
         raise ValueError(f'{self.__class__.__name__} component is a leaf node and cannot have children')
 
     def wrapped(self, width: int) -> str:
@@ -130,6 +134,7 @@ class BaseController(Generic[ComponentType]):
     tree: ElementTree | None = None
 
     def __init_subclass__(cls: type[BaseController[ComponentType]], *args: Any, **kwargs: Any) -> None:
+        """Auto-register this controller on the parameterized `Widget` subclass when subclassed."""
         super().__init_subclass__(*args, **kwargs)
         for base in getattr(cls, '__orig_bases__', []):
             for arg in get_args(base):
@@ -141,6 +146,7 @@ class BaseController(Generic[ComponentType]):
         self.props = props
 
     def __setattr__(self, key: str, value: Any) -> None:
+        """Set an attribute and mark the controller dirty if `key` is in declared `state`."""
         if key in self.state:
             self.set_dirty()
         super().__setattr__(key, value)

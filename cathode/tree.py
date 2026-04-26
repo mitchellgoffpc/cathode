@@ -28,6 +28,7 @@ class ElementTree:
         self.dirty: set[UUID] = set()
 
     def __str__(self) -> str:
+        """Return the formatted tree starting at the root."""
         return self.format(self.root.uuid)
 
     def format(self, uuid: UUID, level: int = 0, verbose: bool = False) -> str:

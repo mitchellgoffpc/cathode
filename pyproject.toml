@@ -36,7 +36,7 @@ lint.select = ["ALL"]
 lint.ignore = [
     "ARG", "ASYNC", "BLE", "C", "EM", "ERA", "FBT", "PERF", "PLR", "Q", "RET", "RUF", "TC", "TD", "TRY",
     "ANN401", "COM812", "E701", "FIX002", "N802", "PT018", "S101", "S310",
-    "D105", "D106", "D107",
+    "D106", "D107",
 ]
 lint.pydocstyle.convention = "google"
 
