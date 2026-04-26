@@ -7,6 +7,8 @@ from cathode.tree import ElementTree
 
 
 class UI:
+    """Convenience namespace exposing the core cathode component types under a single import."""
+
     Component = Component
     Element = Element
     Text = Text

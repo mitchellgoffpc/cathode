@@ -1,3 +1,4 @@
+"""Component primitives for building cathode UIs, including widgets, boxes, and text elements."""
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
@@ -25,13 +26,18 @@ def get_spacing_dict(spacing: Spacing) -> dict[Side, int]:
 
 @dataclass
 class Component:
+    """Base class for everything that can appear in a cathode element tree."""
+
     uuid: UUID = field(default_factory=uuid4, compare=False, kw_only=True)
 
     def contents(self) -> list[Component | None]:
+        """Return the direct children produced by this component."""
         raise NotImplementedError
 
 @dataclass
 class Element(Component):
+    """Renderable component with size, spacing, borders, and background styling."""
+
     width: Length = field(default=None, kw_only=True)
     height: Length = field(default=None, kw_only=True)
     margin: Spacing = field(default=0, kw_only=True)
@@ -53,9 +59,11 @@ class Element(Component):
         return self
 
     def length(self, axis: Axis) -> Length:
+        """Return the configured length (width or height) along `axis`."""
         return self.width if axis is Axis.HORIZONTAL else self.height
 
     def chrome(self, axis: Axis) -> int:
+        """Return the total non-content space (margin, border, padding) consumed along `axis`."""
         a: Side = 'left' if axis is Axis.HORIZONTAL else 'top'
         b: Side = 'right' if axis is Axis.HORIZONTAL else 'bottom'
         return (
@@ -63,10 +71,13 @@ class Element(Component):
         )
 
     def contents(self) -> list[Component | None]:
+        """Return the children assigned to this element."""
         return self.children
 
 @dataclass
 class Text(Element):
+    """Leaf element that renders a string with optional wrapping."""
+
     text: str
     wrap: Wrap = field(default=Wrap.WORDS, kw_only=True)
 
@@ -78,21 +89,27 @@ class Text(Element):
         raise ValueError(f'{self.__class__.__name__} component is a leaf node and cannot have children')
 
     def wrapped(self, width: int) -> str:
+        """Return the text wrapped to `width` columns, caching the result."""
         if width not in self._wrap_cache:
             self._wrap_cache[width] = wrap_lines(self.text.replace('\t', ' ' * 8), width, wrap=self.wrap)
         return self._wrap_cache[width]
 
 @dataclass
 class Box(Element):
+    """Container element that lays out its children along a horizontal or vertical axis."""
+
     flex: Axis = Axis.VERTICAL
 
 @dataclass
 class Widget(Component):
+    """Stateful component whose contents and behavior are driven by an associated controller."""
+
     Controller: ClassVar[type[BaseController]]
     _controller: BaseController | None = field(default=None, kw_only=True, compare=False)
 
     @property
     def controller(self) -> BaseController:
+        """Return the controller instance bound to this widget."""
         assert self._controller is not None, "Widget's controller instance is not initialized"
         return self._controller
 
@@ -101,10 +118,13 @@ class Widget(Component):
         self._controller = value
 
     def contents(self) -> list[Component | None]:
+        """Return the children produced by this widget's controller."""
         return self.controller.contents()
 
 
 class BaseController(Generic[ComponentType]):
+    """Base class for widget controllers; subclasses define state and produce child components."""
+
     state: list[str] = []
     tree: ElementTree | None = None
 
@@ -126,23 +146,29 @@ class BaseController(Generic[ComponentType]):
 
     @property
     def mounted(self) -> bool:
+        """Return whether this controller is currently mounted into an element tree."""
         return self.tree is not None
 
     def set_dirty(self) -> None:
+        """Mark this controller's widget as needing re-rendering on the next update pass."""
         if self.tree:
             self.tree.dirty.add(self.props.uuid)
 
     def handle_mount(self, tree: ElementTree) -> None:
+        """Hook called when the widget is first mounted into `tree`."""
         self.tree = tree
 
     def handle_unmount(self) -> None:
+        """Hook called when the widget is removed from its tree."""
         self.tree = None
 
     def handle_update(self, new_props: ComponentType) -> None:
+        """Hook called when the widget's props change."""
         self.props = new_props
 
     def handle_input(self, ch: str) -> None:
-        pass
+        """Hook called for each input sequence delivered to the widget."""
 
     def contents(self) -> list[Component | None]:
+        """Return the children rendered by this controller."""
         raise NotImplementedError

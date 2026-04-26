@@ -1,3 +1,4 @@
+"""Tests for the cathode.textbox editable text widget."""
 import unittest
 from unittest.mock import Mock
 
@@ -17,6 +18,8 @@ def create_tree(textbox: TextBox) -> tuple[ElementTree, Box, TextBoxController]:
     return tree, root, textbox.controller
 
 class TestTextBoxWrapping(unittest.TestCase):
+    """Tests for textbox text wrapping during rendering."""
+
     def test_textbox_wrapping_rendering(self) -> None:
         test_cases = [
             ("empty text", "", 0, 10, Wrap.EXACT, Styles.inverse(' ')),
@@ -67,6 +70,8 @@ class TestTextBoxWrapping(unittest.TestCase):
 
 
 class TestTextBoxInputHandling(unittest.TestCase):
+    """Tests for textbox keyboard input handling and editing operations."""
+
     def test_textbox_basic_text_editing(self) -> None:
         test_cases = [
             ("insert at end", "", 0, ["A", "B"], "AB", 2),

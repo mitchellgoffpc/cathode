@@ -1,3 +1,4 @@
+"""Terminal rendering loop, input handling, and the run/render entry points for cathode apps."""
 import asyncio
 import fcntl
 import os

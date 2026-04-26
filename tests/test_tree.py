@@ -1,3 +1,4 @@
+"""Tests for cathode.tree element tree mounting, updating, and reconciliation."""
 import time
 import unittest
 from collections import deque
@@ -19,6 +20,8 @@ def toposort(tree: ElementTree) -> Iterator[Component]:
 
 @dataclass
 class ChildWidget(Widget):
+    """Test widget that renders a single text node displaying its `value` prop."""
+
     value: int
 
     class Controller(BaseController):
@@ -27,6 +30,8 @@ class ChildWidget(Widget):
 
 @dataclass
 class ParentWidget(Widget):
+    """Test widget that conditionally renders a `ChildWidget` based on controller state."""
+
     class Controller(BaseController):
         child_value: int | None = 0
 
@@ -34,6 +39,8 @@ class ParentWidget(Widget):
             return [Box()[ChildWidget(self.child_value) if self.child_value is not None else None]]
 
 class TestTree(unittest.TestCase):
+    """Tests for element tree mounting and incremental updates."""
+
     def test_widget_mount_and_update(self) -> None:
         parent = ParentWidget()
         tree = ElementTree(parent)
@@ -79,6 +86,8 @@ class TestTree(unittest.TestCase):
 
 
 class TestUpdatePerformance(unittest.TestCase):
+    """Performance smoke tests for tree updates on wide and deep trees."""
+
     def test_update_performance(self) -> None:
         for widget in (WideTree, DeepTree):
             with self.subTest(widget=widget.__name__):

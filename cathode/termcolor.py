@@ -1,3 +1,4 @@
+"""Detect the terminal's background color via OSC queries and the xterm 256-color palette."""
 import os
 import re
 import select

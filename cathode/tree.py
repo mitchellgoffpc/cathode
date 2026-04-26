@@ -1,3 +1,4 @@
+"""Element tree data structure and reconciliation helpers for mounting and updating components."""
 from dataclasses import asdict, is_dataclass
 from itertools import zip_longest
 from typing import Any, NamedTuple
@@ -7,10 +8,14 @@ from cathode.components import Component, Element, Text, Widget
 
 
 class Offset(NamedTuple):
+    """Pixel-grid coordinate of an element relative to the render origin."""
+
     x: int
     y: int
 
 class ElementTree:
+    """Mutable tree of mounted components with cached layout, parents, and dirty tracking."""
+
     def __init__(self, root: Component) -> None:
         self.root = root
         self.nodes: dict[UUID, Component] = {}
@@ -26,6 +31,7 @@ class ElementTree:
         return self.format(self.root.uuid)
 
     def format(self, uuid: UUID, level: int = 0, verbose: bool = False) -> str:
+        """Render a human-readable tree starting at the node with the given `uuid`."""
         def truncate(s: str, n: int) -> str: return s if len(s) <= n else s[:n-3] + '...'
         prefix = '  ' * (max(0, level - 1)) + ('└─' if level > 0 else '')
         match self.nodes[uuid]:
@@ -45,6 +51,7 @@ class ElementTree:
         return result
 
     def layout(self, uuid: UUID) -> tuple[int, int, int, int]:
+        """Return the cached `(width, height, x, y)` layout for the node with the given `uuid`."""
         return self.widths[uuid], self.heights[uuid], self.offsets[uuid].x, self.offsets[uuid].y
 
 

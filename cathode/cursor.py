@@ -1,3 +1,4 @@
+"""ANSI escape sequences and helpers for controlling the terminal cursor and erasing regions."""
 import atexit
 import os
 import platform

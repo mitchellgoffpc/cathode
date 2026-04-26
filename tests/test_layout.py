@@ -1,3 +1,4 @@
+"""Tests for cathode.layout sizing and offset computation."""
 import time
 import unittest
 
@@ -9,6 +10,8 @@ from tests.helpers import DeepTree, WideTree
 
 
 class TestLayout(unittest.TestCase):
+    """Tests for flex layout sizing and child positioning."""
+
     def test_flex_layout(self) -> None:
         test_cases: list[tuple[str, tuple, tuple, list[tuple], list[tuple]]] = [
             # description, parent_spec, expected_parent_size, children, expected_layouts (x, y, width, height)
@@ -145,6 +148,8 @@ class TestLayout(unittest.TestCase):
 
 
 class TestLayoutPerformance(unittest.TestCase):
+    """Performance smoke tests for layout on wide and deep trees."""
+
     def test_layout_performance(self) -> None:
         for widget in (WideTree, DeepTree):
             with self.subTest(widget=widget.__name__):

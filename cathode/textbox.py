@@ -1,3 +1,4 @@
+"""Editable text box widget with cursor movement, selection, and undo/redo support."""
 from collections import deque
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -45,6 +46,8 @@ def wrap_lines(text: str, width: int, wrap: Wrap) -> Iterator[tuple[str, bool]]:
 
 @dataclass
 class TextBox(Widget):
+    """Editable single- or multi-line text input widget."""
+
     width: Length = 1.0
     text: str | None = None
     placeholder: str = ""
@@ -59,6 +62,8 @@ class TextBox(Widget):
     handle_submit: Callable[[str], bool] | None = None
 
 class TextBoxController(BaseController[TextBox]):
+    """Controller backing `TextBox`; manages buffer state, cursor, history, and key bindings."""
+
     state = ['_text', '_cursor_pos', 'history', 'history_idx', 'mark']
     _text = ''
     _cursor_pos = 0
@@ -73,12 +78,14 @@ class TextBoxController(BaseController[TextBox]):
 
     @property
     def content_width(self) -> int:
+        """Return the inner width available for text, after subtracting padding and borders."""
         if self.tree and self.text_ref.uuid in self.tree.widths:
             return max(0, self.tree.widths[self.text_ref.uuid] - self.text_ref.chrome(Axis.HORIZONTAL))
         return 0
 
     @property
     def text(self) -> str:
+        """Return the current contents of the textbox buffer."""
         return self._text
 
     @text.setter
@@ -90,6 +97,7 @@ class TextBoxController(BaseController[TextBox]):
 
     @property
     def cursor_pos(self) -> int:
+        """Return the cursor position, clamped to the current text length."""
         return min(self._cursor_pos, len(self.text))
 
     @cursor_pos.setter
@@ -97,6 +105,7 @@ class TextBoxController(BaseController[TextBox]):
         self._cursor_pos = pos
 
     def handle_update(self, new_props: TextBox) -> None:
+        """Sync the buffer and history with `new_props` when the parent re-renders."""
         if new_props.text is not None and new_props.text != self._text:
             self._text = new_props.text
             self._cursor_pos = len(new_props.text)
@@ -106,6 +115,7 @@ class TextBoxController(BaseController[TextBox]):
         super().handle_update(new_props)
 
     def handle_input(self, ch: str) -> None:
+        """Apply an input character or escape sequence `ch` to the buffer and cursor state."""
         if self.props.handle_input and not self.props.handle_input(ch, self.cursor_pos):
             return
 
@@ -192,6 +202,7 @@ class TextBoxController(BaseController[TextBox]):
             self.text = text
 
     def handle_escape_input(self, ch: str) -> tuple[str, int, int]:
+        """Handle the body of an escape sequence and return the resulting text, cursor, and history index."""
         text = self.text
         cursor_pos = self.cursor_pos
         history_idx = self.history_idx
@@ -246,6 +257,7 @@ class TextBoxController(BaseController[TextBox]):
         return text, cursor_pos, history_idx
 
     def change_history_idx(self, direction: int) -> tuple[str, int, int]:
+        """Step the history index by `direction` and return the resulting text, cursor, and index."""
         history = self.history
         history_idx = self.history_idx
         new_history_idx = max(0, min(len(history) - 1, history_idx + direction))
@@ -259,6 +271,7 @@ class TextBoxController(BaseController[TextBox]):
         return self.text, self.cursor_pos, history_idx
 
     def change_line(self, direction: int) -> tuple[str, int, int]:
+        """Move the cursor up or down one visual line, falling back to history paging at the edges."""
         current_line, current_col = self.get_cursor_line_col()
         total_lines = self.get_total_lines()
         if ((direction < 0 and current_line == 0) or
@@ -273,6 +286,7 @@ class TextBoxController(BaseController[TextBox]):
         return self.text, self.cursor_pos, self.history_idx
 
     def get_cursor_line_col(self) -> tuple[int, int]:
+        """Return the visual `(line, column)` position of the cursor in the wrapped text."""
         text_before_cursor = self.text[:self.cursor_pos]
         lines = list(wrap_lines(text_before_cursor, self.content_width, self.props.wrap))
         if not lines:
@@ -280,9 +294,11 @@ class TextBoxController(BaseController[TextBox]):
         return len(lines) - 1, len(lines[-1][0])
 
     def get_total_lines(self) -> int:
+        """Return the total number of visual lines in the wrapped text."""
         return sum(1 for _ in wrap_lines(self.text, self.content_width, self.props.wrap))
 
     def get_visual_line_bounds(self, line: int) -> tuple[int, int]:
+        """Return the `(start, end)` text indices for visual line `line`."""
         position = 0
         for i, (line_content, is_hard) in enumerate(wrap_lines(self.text, self.content_width, self.props.wrap)):
             if i == line:
@@ -293,6 +309,7 @@ class TextBoxController(BaseController[TextBox]):
         return len(self.text), len(self.text)
 
     def contents(self) -> list[Component | None]:
+        """Render the textbox contents, including placeholder, cursor, and selection highlighting."""
         if not self.text and self.props.placeholder:
             color_fn = (partial(Colors.apply, color=self.props.placeholder_color)
                         if self.props.placeholder_color else Styles.dim)

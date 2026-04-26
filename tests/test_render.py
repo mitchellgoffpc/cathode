@@ -1,3 +1,4 @@
+"""Tests for cathode.render output, including borders, spacing, and styled text."""
 import time
 import unittest
 
@@ -16,6 +17,8 @@ def render_once(element: Box | Text, max_width: int = 100) -> str:
     return render(tree, element)
 
 class TestInputHandling(unittest.TestCase):
+    """Tests for parsing terminal input sequences."""
+
     def test_split_input_sequence(self) -> None:
         test_cases = [
             ("hello", ["hello"]),
@@ -34,6 +37,8 @@ class TestInputHandling(unittest.TestCase):
 
 
 class TestRender(unittest.TestCase):
+    """Tests for the basic render output of boxes and text."""
+
     def test_empty_box(self) -> None:
         box = Box()[Box(), Text("Hello")]
         assert render_once(box) == "Hello"
@@ -72,6 +77,8 @@ class TestRender(unittest.TestCase):
 
 
 class TestRenderMargin(unittest.TestCase):
+    """Tests for margin rendering around elements."""
+
     def test_margin(self) -> None:
         test_cases: list[tuple[str, str, Spacing, str]] = [
             ("no margin", "Hello", 0, "Hello"),
@@ -87,6 +94,8 @@ class TestRenderMargin(unittest.TestCase):
 
 
 class TestRenderBorder(unittest.TestCase):
+    """Tests for border drawing on selected sides of elements."""
+
     def test_border(self) -> None:
         test_cases: list[tuple[str, str, tuple[Side, ...], int, str]] = [
             ("no border", "Hello", (), 0, "Hello"),
@@ -102,6 +111,8 @@ class TestRenderBorder(unittest.TestCase):
 
 
 class TestRenderPerformance(unittest.TestCase):
+    """Performance smoke tests for rendering wide and deep trees."""
+
     def test_render_performance(self) -> None:
         for widget in (WideTree, DeepTree):
             with self.subTest(widget=widget.__name__):

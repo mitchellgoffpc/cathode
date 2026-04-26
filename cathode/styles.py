@@ -1,3 +1,4 @@
+"""Styling primitives: colors, borders, text wrapping, and ANSI-aware string utilities."""
 import os
 import re
 import unicodedata
@@ -13,16 +14,22 @@ ANSI_16M_SUPPORT = 'truecolor' in os.getenv("COLORTERM", '') or '24bit' in os.ge
 Color = str | tuple[int, int, int]
 
 class Axis(Enum):
+    """Layout axis along which a container arranges its children."""
+
     VERTICAL = 'vertical'
     HORIZONTAL = 'horizontal'
 
 class Wrap(Enum):
+    """Strategy used to wrap text that exceeds the available width."""
+
     EXACT = 'exact'
     WORDS = 'words'
     WORDS_WITH_CURSOR = 'words_with_cursor'
 
 @dataclass
 class BorderStyle:
+    """Glyphs used to draw the eight segments of a box border."""
+
     top_left: str
     top: str
     top_right: str
@@ -33,6 +40,8 @@ class BorderStyle:
     left: str
 
 class Borders:
+    """Predefined `BorderStyle` presets for common border appearances."""
+
     SINGLE = BorderStyle("┌", "─", "┐", "│", "┘", "─", "└", "│")
     DOUBLE = BorderStyle("╔", "═", "╗", "║", "╝", "═", "╚", "║")
     ROUND = BorderStyle("╭", "─", "╮", "│", "╯", "─", "╰", "│")
@@ -42,6 +51,8 @@ class Borders:
     CLASSIC = BorderStyle("+", "-", "+", "|", "+", "-", "+", "|")
 
 class Styles:
+    """ANSI text-style escape codes and helpers for applying them to strings."""
+
     RESET = "\u001B[0m"
     BOLD = "\u001B[1m"
     DIM = "\u001B[2m"
@@ -62,24 +73,41 @@ class Styles:
     STRIKETHROUGH_END = "\u001B[29m"
 
     @staticmethod
-    def bold(text: str) -> str: return apply_style(text, start=Styles.BOLD, end=Styles.BOLD_END)
+    def bold(text: str) -> str:
+        """Wrap `text` in ANSI bold escape codes."""
+        return apply_style(text, start=Styles.BOLD, end=Styles.BOLD_END)
     @staticmethod
-    def dim(text: str) -> str: return apply_style(text, start=Styles.DIM, end=Styles.DIM_END)
+    def dim(text: str) -> str:
+        """Wrap `text` in ANSI dim escape codes."""
+        return apply_style(text, start=Styles.DIM, end=Styles.DIM_END)
     @staticmethod
-    def italic(text: str) -> str: return apply_style(text, start=Styles.ITALIC, end=Styles.ITALIC_END)
+    def italic(text: str) -> str:
+        """Wrap `text` in ANSI italic escape codes."""
+        return apply_style(text, start=Styles.ITALIC, end=Styles.ITALIC_END)
     @staticmethod
-    def underline(text: str) -> str: return apply_style(text, start=Styles.UNDERLINE, end=Styles.UNDERLINE_END)
+    def underline(text: str) -> str:
+        """Wrap `text` in ANSI underline escape codes."""
+        return apply_style(text, start=Styles.UNDERLINE, end=Styles.UNDERLINE_END)
     @staticmethod
-    def overline(text: str) -> str: return apply_style(text, start=Styles.OVERLINE, end=Styles.OVERLINE_END)
+    def overline(text: str) -> str:
+        """Wrap `text` in ANSI overline escape codes."""
+        return apply_style(text, start=Styles.OVERLINE, end=Styles.OVERLINE_END)
     @staticmethod
-    def inverse(text: str) -> str: return apply_style(text, start=Styles.INVERSE, end=Styles.INVERSE_END)
+    def inverse(text: str) -> str:
+        """Wrap `text` in ANSI inverse-video escape codes."""
+        return apply_style(text, start=Styles.INVERSE, end=Styles.INVERSE_END)
     @staticmethod
-    def hidden(text: str) -> str: return apply_style(text, start=Styles.HIDDEN, end=Styles.HIDDEN_END)
+    def hidden(text: str) -> str:
+        """Wrap `text` in ANSI hidden escape codes."""
+        return apply_style(text, start=Styles.HIDDEN, end=Styles.HIDDEN_END)
     @staticmethod
     def strikethrough(text: str) -> str:
+        """Wrap `text` in ANSI strikethrough escape codes."""
         return apply_style(text, start=Styles.STRIKETHROUGH, end=Styles.STRIKETHROUGH_END)
 
 class Colors:
+    """ANSI color escape codes for the standard 16 foreground and background colors."""
+
     BLACK = "\u001B[30m"
     RED = "\u001B[31m"
     GREEN = "\u001B[32m"
@@ -118,46 +146,59 @@ class Colors:
 
     @staticmethod
     def HEX(code: str) -> str:
+        """Return the foreground ANSI escape for the hex color `code`."""
         return hex_to_best_ansi(code)
     @staticmethod
     def RGB(rgb: tuple[int, int, int]) -> str:
+        """Return the foreground ANSI escape for the given RGB triple."""
         return rgb_to_best_ansi(*rgb)
     @staticmethod
     def BG_HEX(code: str) -> str:
+        """Return the background ANSI escape for the hex color `code`."""
         return hex_to_best_ansi(code, offset=ANSI_BACKGROUND_OFFSET)
     @staticmethod
     def BG_RGB(rgb: tuple[int, int, int]) -> str:
+        """Return the background ANSI escape for the given RGB triple."""
         return rgb_to_best_ansi(*rgb, offset=ANSI_BACKGROUND_OFFSET)
 
     @staticmethod
     def ansi(text: str, code: str) -> str:
+        """Wrap `text` in the given foreground ANSI `code` and a reset."""
         return apply_style(text, start=code, end=Colors.END)
     @staticmethod
     def hex(text: str, code: str) -> str:
+        """Color `text` with the foreground hex color `code`."""
         return apply_style(text, start=hex_to_best_ansi(code), end=Colors.END)
     @staticmethod
     def rgb(text: str, rgb: tuple[int, int, int]) -> str:
+        """Color `text` with the foreground RGB triple."""
         return apply_style(text, start=rgb_to_best_ansi(*rgb), end=Colors.END)
 
     @staticmethod
     def bg_ansi(text: str, code: str) -> str:
+        """Wrap `text` in the given background ANSI `code` and a reset, if `code` is non-empty."""
         return apply_style(text, start=code, end=Colors.BG_END) if code else text
     @staticmethod
     def bg_hex(text: str, code: str) -> str:
+        """Color the background of `text` with the hex color `code`."""
         return apply_style(text, start=hex_to_best_ansi(code, offset=ANSI_BACKGROUND_OFFSET), end=Colors.BG_END)
     @staticmethod
     def bg_rgb(text: str, rgb: tuple[int, int, int]) -> str:
+        """Color the background of `text` with the RGB triple."""
         return apply_style(text, start=rgb_to_best_ansi(*rgb, offset=ANSI_BACKGROUND_OFFSET), end=Colors.BG_END)
 
     @staticmethod
     def apply(text: str, color: Color | None) -> str:
+        """Apply `color` to the foreground of `text`, accepting either a hex string or RGB triple."""
         return apply_style(text, start=color_to_ansi(color, background=False), end=Colors.END)
     @staticmethod
     def apply_bg(text: str, color: Color | None) -> str:
+        """Apply `color` to the background of `text`, accepting either a hex string or RGB triple."""
         return apply_style(text, start=color_to_ansi(color, background=True), end=Colors.BG_END)
 
     @staticmethod
     def blend(a: tuple[int, int, int], b: tuple[int, int, int], alpha: float) -> tuple[int, int, int]:
+        """Linearly interpolate between RGB colors `a` and `b` by `alpha` (1.0 = `a`, 0.0 = `b`)."""
         red = int(a[0] * alpha + b[0] * (1.0 - alpha))
         green = int(a[1] * alpha + b[1] * (1.0 - alpha))
         blue = int(a[2] * alpha + b[2] * (1.0 - alpha))

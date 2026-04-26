@@ -1,9 +1,12 @@
+"""Tests for cathode.styles ANSI helpers and text wrapping."""
 import unittest
 
 from cathode.styles import Colors, Styles, Wrap, ansi16m, ansi256, ansi_len, ansi_slice, ansi_strip, wrap_lines
 
 
 class TestAnsiStrip(unittest.TestCase):
+    """Tests for `ansi_strip`."""
+
     def test_ansi_strip(self) -> None:
         test_cases = [
             ("plain text", "plain text"),
@@ -15,6 +18,8 @@ class TestAnsiStrip(unittest.TestCase):
 
 
 class TestAnsiLen(unittest.TestCase):
+    """Tests for `ansi_len`."""
+
     def test_ansi_len(self) -> None:
         test_cases = [
             ("plain text", 10),
@@ -26,6 +31,8 @@ class TestAnsiLen(unittest.TestCase):
 
 
 class TestAnsiSlice(unittest.TestCase):
+    """Tests for `ansi_slice`."""
+
     def test_ansi_slice(self) -> None:
         test_cases = [
             ("basic slice", "hello world", 0, 5, "hello"),
@@ -59,6 +66,8 @@ class TestAnsiSlice(unittest.TestCase):
 
 
 class TestWrapLines(unittest.TestCase):
+    """Tests for `wrap_lines` text wrapping."""
+
     def test_no_wrap(self) -> None:
         test_cases = [
             ("plain text", "Hello World", 20),

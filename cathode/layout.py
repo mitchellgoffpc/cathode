@@ -1,3 +1,4 @@
+"""Layout algorithms that compute element sizes and offsets for a cathode element tree."""
 from itertools import chain
 
 from cathode.components import Box, Component, Element, Text, Widget
