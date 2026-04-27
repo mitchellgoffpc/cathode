@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import random
 import re
+from contextlib import suppress
 from dataclasses import dataclass
 
 from cathode import Box, Colors, Component, Text, TextBox, Widget, render_root
@@ -101,4 +102,5 @@ async def main() -> None:
     await render_root(Box()[intro, Chat()])
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    with suppress(KeyboardInterrupt):
+        asyncio.run(main())

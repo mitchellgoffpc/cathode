@@ -16,6 +16,7 @@ from cathode.components import Box, Component, Element, Side, Text
 from cathode.cursor import (
     cursor_up,
     enter_alternative_screen,
+    erase_end_line,
     erase_line,
     exit_alternative_screen,
     hide_cursor,
@@ -147,7 +148,13 @@ def _terminal_session(alt_screen: bool = False, raw: bool = False) -> Iterator[i
         sys.stdout.flush()
     hide_cursor()
     try:
-        tty.setraw(fd) if raw else tty.setcbreak(fd)
+        if raw:
+            tty.setraw(fd)
+        else:
+            tty.setcbreak(fd)
+            mode = termios.tcgetattr(fd)
+            mode[0] &= ~(termios.ICRNL | termios.IXON)  # keep Enter as \r and disable Ctrl+S/Q flow control
+            termios.tcsetattr(fd, termios.TCSANOW, mode)
         yield fd
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
@@ -195,9 +202,8 @@ def _draw_append(tree: ElementTree, root: Element, prev_lines: list[str], size: 
 def _draw_full(tree: ElementTree, root: Element, prev_lines: list[str], size: os.terminal_size) -> list[str]:
     layout(tree, root, size.columns, size.lines)
     new_lines = render(tree, root).split('\n')[:size.lines]
-    new_lines = [line + erase_line for line in new_lines]
-    new_lines = new_lines + [erase_line] * (size.lines - len(new_lines))
-    sys.stdout.write('\033[H' + '\n\r'.join(new_lines))
+    new_lines = new_lines + [''] * (size.lines - len(new_lines))
+    sys.stdout.write('\033[H' + '\n\r'.join(line + erase_end_line for line in new_lines))
     sys.stdout.flush()
     return new_lines
 
