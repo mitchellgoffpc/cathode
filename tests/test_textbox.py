@@ -203,11 +203,19 @@ class TestTextBoxInputHandling(unittest.TestCase):
         handle_change.assert_not_called()
 
     def test_textbox_enter_and_submit_handling(self) -> None:
-        handle_submit = Mock()
+        handle_submit = Mock(return_value=True)
         textbox = TextBoxController(TextBox(width=20, handle_submit=handle_submit))
         textbox.text = 'Test content'
 
-        # Enter key calls submit handler
+        # Enter key calls submit handler and clears the buffer when handler returns True
         textbox.handle_input('\r')
         handle_submit.assert_called_once_with('Test content')
-        assert textbox.text == 'Test content'
+        assert textbox.text == ''
+        assert textbox.cursor_pos == 0
+        assert textbox.history[-2:] == ['Test content', '']
+
+        # When handler returns False, the buffer is preserved
+        handle_submit.return_value = False
+        textbox.text = 'Another'
+        textbox.handle_input('\r')
+        assert textbox.text == 'Another'

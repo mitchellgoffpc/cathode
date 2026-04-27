@@ -41,3 +41,4 @@ lint.pydocstyle.convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D102", "D103", "D106"]
+"examples/**" = ["D102", "D103", "D106", "INP001", "S311"]

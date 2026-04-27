@@ -139,7 +139,7 @@ def render(tree: ElementTree, element: Element) -> str:
 # Terminal session
 
 @contextmanager
-def _terminal_session(alt_screen: bool = False) -> Iterator[int]:
+def _terminal_session(alt_screen: bool = False, raw: bool = False) -> Iterator[int]:
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     if alt_screen:
@@ -147,7 +147,7 @@ def _terminal_session(alt_screen: bool = False) -> Iterator[int]:
         sys.stdout.flush()
     hide_cursor()
     try:
-        tty.setraw(fd)
+        tty.setraw(fd) if raw else tty.setcbreak(fd)
         yield fd
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
@@ -244,18 +244,26 @@ def _setup(_root: Component) -> tuple[ElementTree, Element]:
     return tree, root
 
 
-async def render_root(_root: Component) -> None:
-    """Run the interactive render loop, mounting `_root` and dispatching input until exit."""
+async def render_root(_root: Component, *, raw: bool = False) -> None:
+    """Run the interactive render loop, mounting `_root` and dispatching input until exit.
+
+    By default the terminal is set to cbreak mode, so the kernel still translates Ctrl+C into SIGINT
+    and Ctrl+Z into SIGTSTP. Pass `raw=True` to receive those bytes as input instead, e.g. to
+    handle them in a root component's `handle_input`.
+    """
     tree, root = _setup(_root)
     prev_lines: list[str] = []
-    with _terminal_session(alt_screen=False):
+    with _terminal_session(alt_screen=False, raw=raw):
         try:
             await _input_loop(tree, root, _draw_append, prev_lines)
         finally:
             _finalize_append(prev_lines)
 
-async def render_root_alt(_root: Component) -> None:
-    """Run the interactive render loop in the terminal's alternate screen buffer."""
+async def render_root_alt(_root: Component, *, raw: bool = False) -> None:
+    """Run the interactive render loop in the terminal's alternate screen buffer.
+
+    See `render_root` for the meaning of `raw`.
+    """
     tree, root = _setup(_root)
-    with _terminal_session(alt_screen=True):
+    with _terminal_session(alt_screen=True, raw=raw):
         await _input_loop(tree, root, _draw_full, [])

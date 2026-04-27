@@ -130,6 +130,10 @@ class TextBoxController(BaseController[TextBox]):
         if ch == '\r':  # Enter, submit
             if self.props.handle_submit and self.props.handle_submit(text):
                 self.undo_stack.clear()
+                self.history = [*self.history[:self.history_idx], text, '']
+                history_idx = len(self.history) - 1
+                text = ''
+                cursor_pos = 0
         elif ch == '\x7f':  # Backspace
             if cursor_pos > 0:
                 text = text[:cursor_pos - 1] + text[cursor_pos:]
@@ -139,8 +143,6 @@ class TextBoxController(BaseController[TextBox]):
         elif ch == '\x02':  # Ctrl+B - move backward one character
             if cursor_pos > 0:
                 cursor_pos -= 1
-        elif ch == '\x03':  # Ctrl+C - break
-            pass  # Handled by terminal
         elif ch == '\x04':  # Ctrl+D - delete character
             if text and cursor_pos < len(text):
                 text = text[:cursor_pos] + text[cursor_pos + 1:]
