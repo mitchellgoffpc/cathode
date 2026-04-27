@@ -8,17 +8,27 @@ import shutil
 import sys
 import termios
 import tty
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from itertools import zip_longest
 
 from cathode.components import Box, Component, Element, Side, Text
-from cathode.cursor import cursor_up, erase_line, hide_cursor, show_cursor
+from cathode.cursor import (
+    cursor_up,
+    enter_alternative_screen,
+    erase_line,
+    exit_alternative_screen,
+    hide_cursor,
+    show_cursor,
+)
 from cathode.layout import layout
 from cathode.styles import Axis, BorderStyle, Color, Colors, ansi_len, color_to_ansi
 from cathode.tree import ElementTree, depth, mount, propogate, update
 
 CONTROL_SEQ_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z~]?|\x1b.|[\x00-\x1f\x7f]')
+
+DrawFn = Callable[[ElementTree, Element, list[str], os.terminal_size], list[str]]
+
 
 # Input parsing
 def split_input_sequence(sequence: str) -> list[str]:
@@ -126,89 +136,126 @@ def render(tree: ElementTree, element: Element) -> str:
     return '\n'.join(_render(tree, element))
 
 
-# Main render loop
+# Terminal session
 
-async def render_root(_root: Component) -> None:
-    """Run the interactive render loop, mounting `_root` and dispatching input until exit."""
-    hide_cursor()
-
-    root = _root if isinstance(_root, Element) else Box()[_root]  # Root component needs to be an element
-    tree = ElementTree(root)
-    mount(tree, root)
-    terminal_width = shutil.get_terminal_size().columns
-    layout(tree, root, terminal_width)
-    initial_render = render(tree, root)
-    previous_render_lines = initial_render.split('\n')
-    sys.stdout.write('\n\r'.join(previous_render_lines))
-    sys.stdout.write('\n')
-    sys.stdout.flush()
-
+@contextmanager
+def _terminal_session(alt_screen: bool = False) -> Iterator[int]:
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
+    if alt_screen:
+        sys.stdout.write(enter_alternative_screen)
+        sys.stdout.flush()
+    hide_cursor()
     try:
         tty.setraw(fd)
-        while True:
-            ready, _, _ = select.select([sys.stdin], [], [], 0.05)
-            if ready:
-                with nonblocking(fd):
-                    sequence = ''
-                    while (ch := sys.stdin.read(1)):
-                        sequence += ch
-                for chunk in split_input_sequence(sequence):
-                    propogate(tree, root, chunk, 'input')
-
-            # Check for dirty components
-            if not tree.dirty:
-                await asyncio.sleep(0.01)
-                continue
-            for uuid in sorted(tree.dirty, key=lambda uuid: depth(tree, tree.nodes[uuid])):  # top-down
-                if uuid in tree.nodes:
-                    update(tree, tree.nodes[uuid])
-            tree.dirty.clear()
-
-            # Re-render the tree
-            terminal_size = shutil.get_terminal_size()
-            layout(tree, root, terminal_size.columns)
-            new_render_lines = render(tree, root).split('\n')
-
-            # Check if we need to clear screen due to large difference in output size
-            line_drop = len(previous_render_lines) - len(new_render_lines)
-            if line_drop > min(terminal_size.lines / 2, terminal_size.lines - 20):
-                sys.stdout.write('\033c')
-                previous_render_lines = []
-
-            # Pad new render to match the number of previous lines
-            max_lines = max(len(previous_render_lines), len(new_render_lines))
-            new_render_lines.extend([''] * (max_lines - len(new_render_lines)))
-
-            # If there are unchanged leading lines, move cursor to the first changed line
-            line_diffs = zip_longest(previous_render_lines, new_render_lines, fillvalue='')
-            first_diff_idx = next((i for i, (prev, new) in enumerate(line_diffs) if prev != new), None)
-            if first_diff_idx is None:
-                await asyncio.sleep(0.01)
-                continue
-
-            output = cursor_up(len(previous_render_lines) - first_diff_idx)
-            prev_tail = previous_render_lines[first_diff_idx:]
-            new_tail = new_render_lines[first_diff_idx:]
-            for prev_line, new_line in zip_longest(prev_tail, new_tail, fillvalue=''):
-                sys.stdout.write('\r')
-                if ansi_len(new_line) < ansi_len(prev_line):
-                    output += erase_line
-                output += new_line + '\n\r'
-
-            sys.stdout.write(output)
-            sys.stdout.flush()
-            previous_render_lines = new_render_lines
-            await asyncio.sleep(0.01)
-
+        yield fd
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         show_cursor()
+        if alt_screen:
+            sys.stdout.write(exit_alternative_screen)
+            sys.stdout.flush()
 
-        reversed_lines = enumerate(reversed(previous_render_lines))
-        first_non_blank = next((i for i, line in reversed_lines if line.strip()), len(previous_render_lines) - 1)
-        if first_non_blank > 0:
-            sys.stdout.write(cursor_up(first_non_blank))
-        sys.stdout.write('\r\n')
+
+# Draw strategies
+
+def _draw_append(tree: ElementTree, root: Element, prev_lines: list[str], size: os.terminal_size) -> list[str]:
+    layout(tree, root, size.columns)
+    new_lines = render(tree, root).split('\n')
+
+    if not prev_lines:
+        sys.stdout.write('\n\r'.join(new_lines) + '\n')
         sys.stdout.flush()
+        return new_lines
+
+    line_drop = len(prev_lines) - len(new_lines)
+    if line_drop > min(size.lines / 2, size.lines - 20):
+        sys.stdout.write('\033c')
+        prev_lines = []
+
+    max_lines = max(len(prev_lines), len(new_lines))
+    new_lines = new_lines + [''] * (max_lines - len(new_lines))
+
+    line_diffs = zip_longest(prev_lines, new_lines, fillvalue='')
+    first_diff_idx = next((i for i, (prev, new) in enumerate(line_diffs) if prev != new), None)
+    if first_diff_idx is None:
+        return new_lines
+
+    output = cursor_up(len(prev_lines) - first_diff_idx) if prev_lines else ''
+    for prev_line, new_line in zip_longest(prev_lines[first_diff_idx:], new_lines[first_diff_idx:], fillvalue=''):
+        sys.stdout.write('\r')
+        if ansi_len(new_line) < ansi_len(prev_line):
+            output += erase_line
+        output += new_line + '\n\r'
+
+    sys.stdout.write(output)
+    sys.stdout.flush()
+    return new_lines
+
+def _draw_full(tree: ElementTree, root: Element, prev_lines: list[str], size: os.terminal_size) -> list[str]:
+    layout(tree, root, size.columns, size.lines)
+    new_lines = render(tree, root).split('\n')[:size.lines]
+    new_lines = [line + erase_line for line in new_lines]
+    new_lines = new_lines + [erase_line] * (size.lines - len(new_lines))
+    sys.stdout.write('\033[H' + '\n\r'.join(new_lines))
+    sys.stdout.flush()
+    return new_lines
+
+def _finalize_append(prev_lines: list[str]) -> None:
+    reversed_lines = enumerate(reversed(prev_lines))
+    first_non_blank = next((i for i, line in reversed_lines if line.strip()), len(prev_lines) - 1)
+    if first_non_blank > 0:
+        sys.stdout.write(cursor_up(first_non_blank))
+    sys.stdout.write('\r\n')
+    sys.stdout.flush()
+
+
+# Main render loop
+
+async def _input_loop(tree: ElementTree, root: Element, draw: DrawFn, prev_lines: list[str]) -> None:
+    fd = sys.stdin.fileno()
+    prev_lines[:] = draw(tree, root, prev_lines, shutil.get_terminal_size())
+    while True:
+        ready, _, _ = select.select([sys.stdin], [], [], 0.05)
+        if ready:
+            with nonblocking(fd):
+                sequence = ''
+                while (ch := sys.stdin.read(1)):
+                    sequence += ch
+            for chunk in split_input_sequence(sequence):
+                propogate(tree, root, chunk, 'input')
+
+        if not tree.dirty:
+            await asyncio.sleep(0.01)
+            continue
+        for uuid in sorted(tree.dirty, key=lambda uuid: depth(tree, tree.nodes[uuid])):  # top-down
+            if uuid in tree.nodes:
+                update(tree, tree.nodes[uuid])
+        tree.dirty.clear()
+
+        prev_lines[:] = draw(tree, root, prev_lines, shutil.get_terminal_size())
+        await asyncio.sleep(0.01)
+
+
+def _setup(_root: Component) -> tuple[ElementTree, Element]:
+    root = _root if isinstance(_root, Element) else Box()[_root]  # Root component needs to be an element
+    tree = ElementTree(root)
+    mount(tree, root)
+    return tree, root
+
+
+async def render_root(_root: Component) -> None:
+    """Run the interactive render loop, mounting `_root` and dispatching input until exit."""
+    tree, root = _setup(_root)
+    prev_lines: list[str] = []
+    with _terminal_session(alt_screen=False):
+        try:
+            await _input_loop(tree, root, _draw_append, prev_lines)
+        finally:
+            _finalize_append(prev_lines)
+
+async def render_root_alt(_root: Component) -> None:
+    """Run the interactive render loop in the terminal's alternate screen buffer."""
+    tree, root = _setup(_root)
+    with _terminal_session(alt_screen=True):
+        await _input_loop(tree, root, _draw_full, [])
