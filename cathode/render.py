@@ -232,7 +232,8 @@ def _finalize_append(prev_lines: list[str]) -> None:
 
 async def _input_loop(tree: ElementTree, root: Element, draw: DrawFn, prev_lines: list[str]) -> None:
     fd = sys.stdin.fileno()
-    prev_lines[:] = draw(tree, root, prev_lines, shutil.get_terminal_size())
+    size = shutil.get_terminal_size()
+    prev_lines[:] = draw(tree, root, prev_lines, size)
     while True:
         ready, _, _ = select.select([sys.stdin], [], [], 0.05)
         if ready:
@@ -243,7 +244,14 @@ async def _input_loop(tree: ElementTree, root: Element, draw: DrawFn, prev_lines
             for chunk in _split_input_sequence(sequence):
                 propogate(tree, root, chunk, 'input')
 
-        if not tree.dirty:
+        new_size = shutil.get_terminal_size()
+        resized = new_size != size
+        size = new_size
+        if resized:
+            sys.stdout.write('\033c')
+            prev_lines.clear()
+
+        if not tree.dirty and not resized:
             await asyncio.sleep(0.01)
             continue
         for uuid in sorted(tree.dirty, key=lambda uuid: depth(tree, tree.nodes[uuid])):  # top-down
@@ -251,7 +259,7 @@ async def _input_loop(tree: ElementTree, root: Element, draw: DrawFn, prev_lines
                 update(tree, tree.nodes[uuid])
         tree.dirty.clear()
 
-        prev_lines[:] = draw(tree, root, prev_lines, shutil.get_terminal_size())
+        prev_lines[:] = draw(tree, root, prev_lines, size)
         await asyncio.sleep(0.01)
 
 
