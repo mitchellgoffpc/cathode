@@ -248,7 +248,7 @@ async def _input_loop(tree: ElementTree, root: Element, draw: DrawFn, prev_lines
         resized = new_size != size
         size = new_size
         if resized:
-            sys.stdout.write('\033c')
+            sys.stdout.write(f'{ESC}2J{ESC}H')
             prev_lines.clear()
 
         if not tree.dirty and not resized:

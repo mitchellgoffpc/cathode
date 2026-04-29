@@ -470,7 +470,8 @@ def iter_wrapped_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) ->
     acc_text, acc_width, acc_start = '', 0, -1
 
     while True:
-        line = cursor.peek(max_width + 1)
+        budget = max_width - acc_width
+        line = cursor.peek(budget + 1)
         plaintext = ansi_strip(line)
         if not plaintext:
             break
@@ -512,14 +513,14 @@ def iter_wrapped_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) ->
             segments.append(WrappedLine(acc_text + text, acc_width + newline_pos, start, cursor.src, hard_break=True))
             cursor.skip(1)
             wrapped = False
-        elif wrap is Wrap.EXACT or ' ' not in plaintext or len(plaintext) <= max_width:
+        elif wrap is Wrap.EXACT or ' ' not in plaintext or len(plaintext) <= budget:
             col_before = cursor.visual_col
-            text = cursor.consume(max_width)
+            text = cursor.consume(budget)
             segments.append(WrappedLine(
                 acc_text + text, acc_width + cursor.visual_col - col_before, start, cursor.src, hard_break=False))
             wrapped = True
         else:
-            break_pos = max_width if plaintext[-1] == ' ' else plaintext.rfind(' ')
+            break_pos = budget if plaintext[-1] == ' ' else plaintext.rfind(' ')
             slice_end = break_pos + (1 if wrap is Wrap.WORDS_WITH_CURSOR else 0)
             col_before = cursor.visual_col
             text = cursor.consume(slice_end)

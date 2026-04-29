@@ -82,7 +82,7 @@ class FileBrowser(Widget):
             left = Box(width=0.4, border=['right'], border_color=ACCENT, padding={'left': 1, 'right': 1})[
                 Text(text=list_text),
             ]
-            right = Box(padding={'left': 1, 'right': 1})[Text(text=preview)]
+            right = Box(width=0.6, padding={'left': 1, 'right': 1})[Text(text=preview)]
             body = Box(flex=Axis.HORIZONTAL)[left, right]
             return [header, body, footer]
 
