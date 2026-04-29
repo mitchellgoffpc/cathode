@@ -20,12 +20,14 @@ class TestAnsiStrip(unittest.TestCase):
 
     def test_ansi_strip(self) -> None:
         test_cases = [
-            ("plain text", "plain text"),
-            (f"foo{Colors.RED}bar{Colors.END}baz", "foobarbaz"),
-            (f"{Styles.BOLD}[{Colors.BLUE}hello world{Colors.END}]{Styles.BOLD_END}", "[hello world]"),
+            ("plain text", "plain text", "plain text"),
+            ("single color span", f"foo{Colors.RED}bar{Colors.END}baz", "foobarbaz"),
+            ("nested style and color spans",
+                f"{Styles.BOLD}[{Colors.BLUE}hello world{Colors.END}]{Styles.BOLD_END}", "[hello world]"),
         ]
-        for input_text, expected in test_cases:
-            assert ansi_strip(input_text) == expected
+        for description, input_text, expected in test_cases:
+            with self.subTest(description=description):
+                assert ansi_strip(input_text) == expected
 
 
 class TestAnsiLen(unittest.TestCase):
@@ -33,12 +35,14 @@ class TestAnsiLen(unittest.TestCase):
 
     def test_ansi_len(self) -> None:
         test_cases = [
-            ("plain text", 10),
-            (f"foo{Colors.RED}bar{Colors.END}baz", 9),
-            (f"{Styles.BOLD}[{Colors.BLUE}hello world{Colors.END}]{Styles.BOLD_END}", 13),
+            ("plain text", "plain text", 10),
+            ("single color span", f"foo{Colors.RED}bar{Colors.END}baz", 9),
+            ("nested style and color spans",
+                f"{Styles.BOLD}[{Colors.BLUE}hello world{Colors.END}]{Styles.BOLD_END}", 13),
         ]
-        for input_text, expected in test_cases:
-            assert ansi_len(input_text) == expected
+        for description, input_text, expected in test_cases:
+            with self.subTest(description=description):
+                assert ansi_len(input_text) == expected
 
 
 class TestAnsiSlice(unittest.TestCase):

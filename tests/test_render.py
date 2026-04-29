@@ -21,20 +21,21 @@ class TestInputHandling(unittest.TestCase):
 
     def test_split_input_sequence(self) -> None:
         test_cases = [
-            ("hello", ["hello"]),
-            ("ab\x03cd", ["ab", "\x03", "cd"]),
-            ("\x01\x02", ["\x01", "\x02"]),
-            ("\x1b[A", ["\x1b[A"]),
-            ("hi\x1b[5~there", ["hi", "\x1b[5~", "there"]),
-            ("x\x1by", ["x", "\x1by"]),
-            ("a\x1b[12;34Bz", ["a", "\x1b[12;34B", "z"]),
-            ("a\nb", ["a", "\n", "b"]),
-            ("\x7f\x7f\x7f", ["\x7f", "\x7f", "\x7f"]),
-            ("a\x1b[200~hi\nthere\rfoo\x1b[201~b", ["a", "\x1b[200~hi\nthere\rfoo\x1b[201~", "b"]),
-            ("\x1b[200~hi\nthere", ["\x1b[200~hi\nthere"]),
+            ("plain text", "hello", ["hello"]),
+            ("control char between text", "ab\x03cd", ["ab", "\x03", "cd"]),
+            ("adjacent control chars split", "\x01\x02", ["\x01", "\x02"]),
+            ("lone CSI sequence", "\x1b[A", ["\x1b[A"]),
+            ("CSI tilde sequence between text", "hi\x1b[5~there", ["hi", "\x1b[5~", "there"]),
+            ("ESC + non-CSI char (Alt-key)", "x\x1by", ["x", "\x1by"]),
+            ("parameterized CSI sequence", "a\x1b[12;34Bz", ["a", "\x1b[12;34B", "z"]),
+            ("newline split as control char", "a\nb", ["a", "\n", "b"]),
+            ("DEL bytes split individually", "\x7f\x7f\x7f", ["\x7f", "\x7f", "\x7f"]),
+            ("bracketed paste keeps newlines and CRs intact",
+                "a\x1b[200~hi\nthere\rfoo\x1b[201~b", ["a", "\x1b[200~hi\nthere\rfoo\x1b[201~", "b"]),
+            ("unterminated bracketed paste consumes rest of input", "\x1b[200~hi\nthere", ["\x1b[200~hi\nthere"]),
         ]
-        for sequence, expected in test_cases:
-            with self.subTest(sequence=sequence):
+        for description, sequence, expected in test_cases:
+            with self.subTest(description=description):
                 assert _split_input_sequence(sequence) == expected
 
 
