@@ -221,6 +221,18 @@ XTERM_COLORS: dict[int, tuple[int, int, int]] = (
     {16 + 36 * r + 6 * g + b: (LEVELS[r], LEVELS[g], LEVELS[b]) for r in range(6) for g in range(6) for b in range(6)} |
     {232 + i: (8 + 10 * i, 8 + 10 * i, 8 + 10 * i) for i in range(24)})
 
+def _apply_style(text: str, start: str, end: str) -> str:
+    return f"{start}{text}{end}" if start else text
+
+def _ansi16(code: int, *, offset: int = 0) -> str:
+    return f"\u001B[{code + offset}m"
+
+def _ansi256(code: int, *, offset: int = 0) -> str:
+    return f"\u001B[{38 + offset};5;{code}m"
+
+def _ansi16m(red: int, green: int, blue: int, *, offset: int = 0) -> str:
+    return f"\u001B[{38 + offset};2;{red};{green};{blue}m"
+
 def _srgb_to_linear(value: int) -> float:
     c = value / 255.0
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
@@ -314,17 +326,121 @@ def color_to_ansi(color: Color | None, *, background: bool) -> str:
 
 # ANSI escape helpers
 
-def _apply_style(text: str, start: str, end: str) -> str:
-    return f"{start}{text}{end}" if start else text
+_STYLE_STARTS_TO_STOPS: dict[str, str] = {}
+_STYLE_STOPS_TO_STARTS: dict[str, list[str]] = defaultdict(list)
+for _name, _value in Styles.__dict__.items():
+    if isinstance(_value, str) and _value.startswith('\x1b'):
+        if _name.endswith('_END'):
+            _STYLE_STOPS_TO_STARTS[_value].append(Styles.__dict__[_name.removesuffix('_END')])
+        else:
+            _STYLE_STARTS_TO_STOPS[_value] = Styles.__dict__.get(_name + '_END', Styles.RESET)
+del _name, _value
 
-def _ansi16(code: int, *, offset: int = 0) -> str:
-    return f"\u001B[{code + offset}m"
+class _AnsiCursor:
+    """Forward walker over ANSI-styled text. Tracks visual position and active styles across calls."""
 
-def _ansi256(code: int, *, offset: int = 0) -> str:
-    return f"\u001B[{38 + offset};5;{code}m"
+    def __init__(self, content: str) -> None:
+        self.content = content
+        self.src = 0
+        self.visual_col = 0
+        self.active_styles: set[str] = set()
+        self.active_color = ''
+        self.active_bgcolor = ''
 
-def _ansi16m(red: int, green: int, blue: int, *, offset: int = 0) -> str:
-    return f"\u001B[{38 + offset};2;{red};{green};{blue}m"
+    def _step(self, n: int, *, emit: bool) -> str:
+        out: list[str] = []
+        emitted_styles: set[str] = set()
+        emitted_color = emitted_bgcolor = False
+        cols = 0
+        while self.src < len(self.content) and cols < n:
+            if m := ANSI_RE.match(self.content, self.src):
+                self.src = m.end()
+                codes = deque(m.group()[2:-1].split(';'))
+                while codes:
+                    code = int(codes.popleft())
+                    ansi_code = f'\x1b[{code}m'
+                    if code in (38, 48) and codes:
+                        if codes[0] == '5' and len(codes) >= 2:
+                            _, color = codes.popleft(), codes.popleft()
+                            ansi_code = f'\x1b[{code};5;{color}m'
+                        elif codes[0] == '2' and len(codes) >= 4:
+                            _, r, g, b = codes.popleft(), codes.popleft(), codes.popleft(), codes.popleft()
+                            ansi_code = f'\x1b[{code};2;{r};{g};{b}m'
+                    if code == 0:
+                        if emit and (emitted_styles or emitted_color or emitted_bgcolor):
+                            out.append(Styles.RESET)
+                        self.active_styles.clear()
+                        self.active_color = self.active_bgcolor = ''
+                        emitted_styles.clear()
+                        emitted_color = emitted_bgcolor = False
+                    elif code in range(30, 39) or code in range(90, 98):
+                        self.active_color = ansi_code
+                        emitted_color = False
+                    elif code in range(40, 49) or code in range(100, 108):
+                        self.active_bgcolor = ansi_code
+                        emitted_bgcolor = False
+                    elif code == 39:
+                        if emit and emitted_color:
+                            out.append(Colors.END)
+                        self.active_color = ''
+                        emitted_color = False
+                    elif code == 49:
+                        if emit and emitted_bgcolor:
+                            out.append(Colors.BG_END)
+                        self.active_bgcolor = ''
+                        emitted_bgcolor = False
+                    elif ansi_code in _STYLE_STARTS_TO_STOPS:
+                        self.active_styles.add(ansi_code)
+                    elif ansi_code in _STYLE_STOPS_TO_STARTS:
+                        starts = _STYLE_STOPS_TO_STARTS[ansi_code]
+                        if emit and any(s in emitted_styles for s in starts):
+                            out.append(ansi_code)
+                        for s in starts:
+                            self.active_styles.discard(s)
+                            emitted_styles.discard(s)
+                continue
+
+            ch = self.content[self.src]
+            ch_width = 2 if unicodedata.east_asian_width(ch) in 'FW' else 1
+            if emit:
+                for s in self.active_styles - emitted_styles:
+                    out.append(s)
+                    emitted_styles.add(s)
+                if self.active_color and not emitted_color:
+                    out.append(self.active_color)
+                    emitted_color = True
+                if self.active_bgcolor and not emitted_bgcolor:
+                    out.append(self.active_bgcolor)
+                    emitted_bgcolor = True
+                out.append(ch)
+            self.src += 1
+            self.visual_col += ch_width
+            cols += ch_width
+
+        if emit:
+            if emitted_color:
+                out.append(Colors.END)
+            if emitted_bgcolor:
+                out.append(Colors.BG_END)
+            for s in emitted_styles:
+                out.append(_STYLE_STARTS_TO_STOPS[s])
+        return ''.join(out)
+
+    def consume(self, n: int) -> str:
+        """Walk forward `n` visual columns, returning styled text and advancing state."""
+        return self._step(n, emit=True)
+
+    def skip(self, n: int) -> None:
+        """Walk forward `n` visual columns without emitting; advances state."""
+        self._step(n, emit=False)
+
+    def peek(self, n: int) -> str:
+        """Return the styled text for the next `n` visual columns without changing state."""
+        saved = (self.src, self.visual_col, self.active_styles.copy(), self.active_color, self.active_bgcolor)
+        styled = self._step(n, emit=True)
+        self.src, self.visual_col, self.active_styles, self.active_color, self.active_bgcolor = saved
+        return styled
+
 
 def ansi_len(text: str) -> int:
     """Return the visual width of `text` in columns, ignoring ANSI escapes and counting wide chars as 2."""
@@ -332,120 +448,13 @@ def ansi_len(text: str) -> int:
 
 def ansi_strip(text: str) -> str:
     """Return `text` with all ANSI SGR escape sequences removed."""
-    return re.sub(r'\u001B\[[0-9;]+m', '', text)
+    return ANSI_RE.sub('', text)
 
 def ansi_slice(string: str, start: int, end: int) -> str:
     """Return the substring of `string` between visual columns `start` and `end`, preserving styling."""
-    style_starts_to_stops = {}
-    style_stops_to_starts = defaultdict(list)
-    for attr_name, attr_value in Styles.__dict__.items():
-        if attr_name.endswith('_END'):
-            start_code = Styles.__dict__[attr_name.removesuffix('_END')]
-            style_stops_to_starts[attr_value].append(start_code)
-        else:
-            style_starts_to_stops[attr_value] = Styles.__dict__.get(attr_name + '_END', Styles.RESET)
-
-    ansi_pattern = re.compile(r'\u001B\[([0-9;]+)m')
-    chunks = []
-    last_pos = 0
-
-    for match in ansi_pattern.finditer(string):
-        if match.start() > last_pos:
-            chunks.append(string[last_pos:match.start()])
-        chunks.append(match.group())
-        last_pos = match.end()
-    if last_pos < len(string):
-        chunks.append(string[last_pos:])
-
-    result = []
-    current_pos = 0
-    active_styles: dict[str, bool] = {}
-    active_color = active_bgcolor = ('', False)
-
-    for chunk in chunks:
-        if match_ := ansi_pattern.match(chunk):
-            codes = deque(match_.group(1).split(';'))
-            while codes:
-                code = int(codes.popleft())
-                ansi_code = f'\u001B[{code}m'
-                if code in (38, 48) and codes:
-                    if codes[0] == '5' and len(codes) >= 2:
-                        _, color_code = codes.popleft(), codes.popleft()
-                        ansi_code = f'\u001B[{code};5;{color_code}m'
-                    elif codes[0] == '2' and len(codes) >= 4:
-                        _, r, g, b = codes.popleft(), codes.popleft(), codes.popleft(), codes.popleft()
-                        ansi_code = f'\u001B[{code};2;{r};{g};{b}m'
-
-                if code == 0:
-                    if any(active_styles.values()) or active_color[1] or active_bgcolor[1]:
-                        result.append(Styles.RESET)
-                    active_styles.clear()
-                    active_color = active_bgcolor = ('', False)
-                elif code in range(30, 39) or code in range(90, 98):
-                    active_color = (ansi_code, False)
-                elif code in range(40, 49) or code in range(100, 108):
-                    active_bgcolor = (ansi_code, False)
-                elif code == 39:
-                    if active_color[1]:
-                        result.append(Colors.END)
-                    active_color = ('', False)
-                elif code == 49:
-                    if active_bgcolor[1]:
-                        result.append(Colors.BG_END)
-                    active_bgcolor = ('', False)
-                elif ansi_code in style_starts_to_stops:
-                    active_styles[ansi_code] = False
-                elif ansi_code in style_stops_to_starts:
-                    if any(active_styles.get(style, False) for style in style_stops_to_starts[ansi_code]):
-                        result.append(ansi_code)
-                    for style in style_stops_to_starts[ansi_code]:
-                        active_styles.pop(style, None)
-
-        else:
-            chunk_end = current_pos + len(chunk)
-            if chunk_end <= start:
-                current_pos = chunk_end
-                continue
-            if current_pos >= end:
-                break
-
-            slice_start = max(0, start - current_pos)
-            slice_end = min(len(chunk), end - current_pos)
-            if slice_start < slice_end:
-                for style_code, has_style_content in active_styles.items():
-                    if not has_style_content:
-                        result.append(style_code)
-                        active_styles[style_code] = True
-                if active_color[0] and not active_color[1]:
-                    result.append(active_color[0])
-                    active_color = (active_color[0], True)
-                if active_bgcolor[0] and not active_bgcolor[1]:
-                    result.append(active_bgcolor[0])
-                    active_bgcolor = (active_bgcolor[0], True)
-                result.append(chunk[slice_start:slice_end])
-            if chunk_end >= end:
-                break
-            current_pos = chunk_end
-
-    reset = ''
-    if active_color[0] and active_color[1]:
-        reset += Colors.END
-    if active_bgcolor[0] and active_bgcolor[1]:
-        reset += Colors.BG_END
-    for style, used in active_styles.items():
-        if used:
-            reset += style_starts_to_stops[style]
-    return ''.join(result) + reset
-
-def _advance_source(content: str, src: int, visual_cols: int) -> int:
-    cols = 0
-    while src < len(content) and cols < visual_cols:
-        if m := ANSI_RE.match(content, src):
-            src = m.end()
-            continue
-        cols += 2 if unicodedata.east_asian_width(content[src]) in 'FW' else 1
-        src += 1
-    return src
+    cursor = _AnsiCursor(string)
+    cursor.skip(start)
+    return cursor.consume(end - start)
 
 def iter_wrapped_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) -> Iterator[WrappedLine]:
     """Wrap `content` to `max_width` columns, yielding one `WrappedLine` per visual line."""
@@ -453,28 +462,32 @@ def iter_wrapped_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) ->
         max_width -= 1
     if max_width <= 0:
         return
+    cursor = _AnsiCursor(content)
     segments: list[WrappedLine] = []
-    pos = src = 0
     wrapped = False
     acc_text, acc_width, acc_start = '', 0, -1
 
-    while line := ansi_slice(content, pos, pos + max_width + 1):
+    while True:
+        line = cursor.peek(max_width + 1)
         plaintext = ansi_strip(line)
+        if not plaintext:
+            break
+
         if leading_newlines := len(plaintext) - len(plaintext.lstrip('\n')):
             for i in range(leading_newlines):
                 if i == 0 and wrapped:
                     wrapped = False
                 else:
-                    start = acc_start if acc_start >= 0 else src
-                    segments.append(WrappedLine(acc_text, acc_width, start, src, hard_break=True))
+                    start = acc_start if acc_start >= 0 else cursor.src
+                    segments.append(WrappedLine(acc_text, acc_width, start, cursor.src, hard_break=True))
                     acc_text, acc_width, acc_start = '', 0, -1
-                src += 1
-                pos += 1
+                cursor.skip(1)
             continue
 
         leading_whitespace = len(plaintext) - len(plaintext.lstrip(' \t'))
         if wrap in (Wrap.WORDS, Wrap.WORDS_WITH_CURSOR) and leading_whitespace:
-            ws_advance = _advance_source(content, src, leading_whitespace) - src
+            ws_start = cursor.src
+            cursor.skip(leading_whitespace)
             if wrapped:
                 # Handles a cursor off the right side of the textbox boundary, capping it at the edge
                 cursor_pos_in_line = len(line) - len(line.lstrip(' \t'))
@@ -482,52 +495,43 @@ def iter_wrapped_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) ->
                     last = segments[-1]
                     stub = ansi_slice(line, cursor_pos_in_line, cursor_pos_in_line + 1)
                     new_text = ansi_slice(last.text, 0, last.width - 1) + stub
-                    segments[-1] = WrappedLine(
-                        new_text, last.width, last.source_start, last.source_end + ws_advance, last.hard_break)
+                    new_end = last.source_end + (cursor.src - ws_start)
+                    segments[-1] = WrappedLine(new_text, last.width, last.source_start, new_end, last.hard_break)
             else:
                 if acc_start < 0:
-                    acc_start = src
+                    acc_start = ws_start
                 acc_text += ansi_slice(line, 0, leading_whitespace)
                 acc_width += leading_whitespace
-            pos += leading_whitespace
-            src += ws_advance
             continue
 
+        start = acc_start if acc_start >= 0 else cursor.src
         if (newline_pos := plaintext.find('\n')) >= 0:
-            text = ansi_slice(content, pos, pos + newline_pos)
-            new_src = _advance_source(content, src, newline_pos)
-            start = acc_start if acc_start >= 0 else src
-            segments.append(WrappedLine(acc_text + text, acc_width + newline_pos, start, new_src, hard_break=True))
-            acc_text, acc_width, acc_start = '', 0, -1
-            pos += newline_pos + 1
-            src = new_src + 1
+            text = cursor.consume(newline_pos)
+            segments.append(WrappedLine(acc_text + text, acc_width + newline_pos, start, cursor.src, hard_break=True))
+            cursor.skip(1)
             wrapped = False
         elif wrap is Wrap.EXACT or ' ' not in plaintext or len(plaintext) <= max_width:
-            text = ansi_slice(content, pos, pos + max_width)
-            new_src = _advance_source(content, src, max_width)
-            start = acc_start if acc_start >= 0 else src
-            segments.append(WrappedLine(acc_text + text, acc_width + ansi_len(text), start, new_src, hard_break=False))
-            acc_text, acc_width, acc_start = '', 0, -1
-            pos += max_width
-            src = new_src
+            col_before = cursor.visual_col
+            text = cursor.consume(max_width)
+            segments.append(WrappedLine(
+                acc_text + text, acc_width + cursor.visual_col - col_before, start, cursor.src, hard_break=False))
             wrapped = True
         else:
             break_pos = max_width if plaintext[-1] == ' ' else plaintext.rfind(' ')
             slice_end = break_pos + (1 if wrap is Wrap.WORDS_WITH_CURSOR else 0)
-            text = ansi_slice(content, pos, pos + slice_end)
-            seg_end = _advance_source(content, src, slice_end)
-            new_src = _advance_source(content, src, break_pos + 1)
-            start = acc_start if acc_start >= 0 else src
-            segments.append(WrappedLine(acc_text + text, acc_width + ansi_len(text), start, seg_end, hard_break=False))
-            acc_text, acc_width, acc_start = '', 0, -1
-            pos += break_pos + 1
-            src = new_src
+            col_before = cursor.visual_col
+            text = cursor.consume(slice_end)
+            seg_end = cursor.src
+            cursor.skip(break_pos + 1 - slice_end)
+            segments.append(WrappedLine(
+                acc_text + text, acc_width + cursor.visual_col - col_before, start, seg_end, hard_break=False))
             wrapped = True
+        acc_text, acc_width, acc_start = '', 0, -1
 
     if acc_start >= 0:
-        segments.append(WrappedLine(acc_text, acc_width, acc_start, src, hard_break=False))
+        segments.append(WrappedLine(acc_text, acc_width, acc_start, cursor.src, hard_break=False))
     elif segments and segments[-1].hard_break:
-        segments.append(WrappedLine('', 0, src, src, hard_break=False))
+        segments.append(WrappedLine('', 0, cursor.src, cursor.src, hard_break=False))
     yield from segments
 
 def wrap_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) -> str:
