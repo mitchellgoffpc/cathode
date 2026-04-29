@@ -300,14 +300,11 @@ def _rgb_to_best_ansi(red: int, green: int, blue: int, *, offset: int = 0) -> st
         return _ansi16(code, offset=offset)
 
 def _hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
-    matches = re.search(r'[a-f\d]{6}|[a-f\d]{3}', str(hex_str), re.IGNORECASE)
-    if not matches:
-        return (0, 0, 0)
-
-    color_string = matches.group(0)
+    if not (hex_str.startswith('#') and re.fullmatch(r'[a-f\d]{6}|[a-f\d]{3}', hex_str[1:], re.IGNORECASE)):
+        raise ValueError(f"Invalid hex color: {hex_str!r} (expected '#rgb' or '#rrggbb')")
+    color_string = hex_str[1:]
     if len(color_string) == 3:
-        color_string = ''.join([c + c for c in color_string])
-
+        color_string = ''.join(c + c for c in color_string)
     integer = int(color_string, 16)
     return (integer >> 16) & 0xFF, (integer >> 8) & 0xFF, integer & 0xFF
 
@@ -315,13 +312,18 @@ def _hex_to_best_ansi(hex_str: str, *, offset: int = 0) -> str:
     return _rgb_to_best_ansi(*_hex_to_rgb(hex_str), offset=offset)
 
 def color_to_ansi(color: Color | None, *, background: bool) -> str:
-    """Return the foreground or background ANSI escape for `color`, or empty string for `None`."""
+    """Return the foreground or background ANSI escape for `color`, or empty string for `None`.
+
+    String colors are autodetected: a leading `#` is parsed as a hex color, and a leading ESC `[`
+    is treated as a pre-built ANSI escape (e.g. `Colors.RED`). Tuples are RGB triples.
+    """
     offset = ANSI_BACKGROUND_OFFSET if background else 0
     match color:
         case None: return ''
         case (int(r), int(g), int(b)): return _rgb_to_best_ansi(r, g, b, offset=offset)
-        case str() as hex_color: return _hex_to_best_ansi(hex_color, offset=offset)
-        case _: raise ValueError(f"Invalid color value: {color}")
+        case str() if color.startswith('\x1b['): return color
+        case str() if color.startswith('#'): return _hex_to_best_ansi(color, offset=offset)
+        case _: raise ValueError(f"Invalid color value: {color!r} (expected ANSI escape, '#hex', or RGB tuple)")
 
 
 # ANSI escape helpers
