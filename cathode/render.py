@@ -27,8 +27,7 @@ exit_alternative_screen = f"{ESC}?1049l"
 
 
 # Input parsing
-def split_input_sequence(sequence: str) -> list[str]:
-    """Split a raw input string into individual characters and ANSI control sequences."""
+def _split_input_sequence(sequence: str) -> list[str]:
     chunks: list[str] = []
     last = 0
     for match in CONTROL_SEQ_RE.finditer(sequence):
@@ -42,8 +41,7 @@ def split_input_sequence(sequence: str) -> list[str]:
 
 # Context manager to set O_NONBLOCK on a file descriptor
 @contextmanager
-def nonblocking(fd: int) -> Iterator[None]:
-    """Context manager that sets `O_NONBLOCK` on `fd` for the duration of the block."""
+def _nonblocking(fd: int) -> Iterator[None]:
     original_fl = fcntl.fcntl(fd, fcntl.F_GETFL)
     try:
         fcntl.fcntl(fd, fcntl.F_SETFL, original_fl | os.O_NONBLOCK)
@@ -54,17 +52,15 @@ def nonblocking(fd: int) -> Iterator[None]:
 
 # Rendering logic
 
-def apply_spacing(rows: list[str], width: int, spacing: dict[Side, int]) -> list[str]:
-    """Pad `rows` with blank space according to the per-side `spacing` map."""
+def _apply_spacing(rows: list[str], width: int, spacing: dict[Side, int]) -> list[str]:
     left = ' ' * spacing['left']
     right = ' ' * spacing['right']
     vertical = ' ' * (width + spacing['left'] + spacing['right'])
     return [vertical] * spacing['top'] + [left + row + right for row in rows] + [vertical] * spacing['bottom']
 
-def apply_borders(
+def _apply_borders(
     rows: list[str], width: int, borders: set[Side], border_style: BorderStyle, border_color: Color | None,
 ) -> list[str]:
-    """Draw `border_style` glyphs on the requested sides of `rows`, optionally colored."""
     if not borders:
         return rows
     color_code = color_to_ansi(border_color, background=False)
@@ -84,17 +80,16 @@ def apply_borders(
         result.append(Colors.ansi(bottom_left + border_style.bottom * width + bottom_right, color_code))
     return result
 
-def apply_chrome(rows: list[str], content_width: int, element: Element) -> list[str]:
-    """Wrap `rows` with `element`'s padding, background, borders, and margin."""
+def _apply_chrome(rows: list[str], content_width: int, element: Element) -> list[str]:
     padded_width = content_width + element.paddings['left'] + element.paddings['right']
     bordered_width = padded_width + element.borders['left'] + element.borders['right']
-    rows = apply_spacing(rows, content_width, element.paddings)
+    rows = _apply_spacing(rows, content_width, element.paddings)
     if element.background_color:
         color_code = color_to_ansi(element.background_color, background=True)
         rows = [color_code + row + Colors.BG_END for row in rows]
     border_sides = {k for k, v in element.borders.items() if v}
-    rows = apply_borders(rows, padded_width, border_sides, element.border_style, element.border_color)
-    rows = apply_spacing(rows, bordered_width, element.margins)
+    rows = _apply_borders(rows, padded_width, border_sides, element.border_style, element.border_color)
+    rows = _apply_spacing(rows, bordered_width, element.margins)
     return rows
 
 def _fit_height(rows: list[str], width: int, height: int) -> list[str]:
@@ -128,7 +123,7 @@ def _render(tree: ElementTree, element: Element) -> list[str]:
         case _:
             raise ValueError(f"Unknown element type: {type(element)}")
 
-    return apply_chrome(rows, content_width, element)
+    return _apply_chrome(rows, content_width, element)
 
 def render(tree: ElementTree, element: Element) -> str:
     """Return the fully rendered string for `element` based on cached layout in `tree`."""
@@ -222,11 +217,11 @@ async def _input_loop(tree: ElementTree, root: Element, draw: DrawFn, prev_lines
     while True:
         ready, _, _ = select.select([sys.stdin], [], [], 0.05)
         if ready:
-            with nonblocking(fd):
+            with _nonblocking(fd):
                 sequence = ''
                 while (ch := sys.stdin.read(1)):
                     sequence += ch
-            for chunk in split_input_sequence(sequence):
+            for chunk in _split_input_sequence(sequence):
                 propogate(tree, root, chunk, 'input')
 
         if not tree.dirty:
@@ -266,7 +261,9 @@ async def render_root(_root: Component, *, raw: bool = False) -> None:
 async def render_root_alt(_root: Component, *, raw: bool = False) -> None:
     """Run the interactive render loop in the terminal's alternate screen buffer.
 
-    See `render_root` for the meaning of `raw`.
+    By default the terminal is set to cbreak mode, so the kernel still translates Ctrl+C into SIGINT
+    and Ctrl+Z into SIGTSTP. Pass `raw=True` to receive those bytes as input instead, e.g. to
+    handle them in a root component's `handle_input`.
     """
     tree, root = _setup(_root)
     with _terminal_session(alt_screen=True, raw=raw):

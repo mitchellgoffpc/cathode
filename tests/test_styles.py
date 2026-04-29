@@ -1,7 +1,7 @@
 """Tests for cathode.styles ANSI helpers and text wrapping."""
 import unittest
 
-from cathode.styles import Colors, Styles, Wrap, ansi16m, ansi256, ansi_len, ansi_slice, ansi_strip, wrap_lines
+from cathode.styles import Colors, Styles, Wrap, _ansi16m, _ansi256, ansi_len, ansi_slice, ansi_strip, wrap_lines
 
 
 class TestAnsiStrip(unittest.TestCase):
@@ -38,9 +38,9 @@ class TestAnsiSlice(unittest.TestCase):
             ("basic slice", "hello world", 0, 5, "hello"),
             ("basic slice end", "hello world", 6, 11, "world"),
             ("ansi16 colors", f"{Colors.ansi('hello', Colors.RED)} world", 0, 5, f"{Colors.RED}hello{Colors.END}"),
-            ("ansi256 colors", f"{ansi256(196)}hello{Colors.END} world", 0, 5, f"{ansi256(196)}hello{Colors.END}"),
-            ("ansi16m colors", f"{ansi16m(255, 0, 0)}hello{Colors.END} world",
-                0, 5, f"{ansi16m(255, 0, 0)}hello{Colors.END}"),
+            ("ansi256 colors", f"{_ansi256(196)}hello{Colors.END} world", 0, 5, f"{_ansi256(196)}hello{Colors.END}"),
+            ("ansi16m colors", f"{_ansi16m(255, 0, 0)}hello{Colors.END} world",
+                0, 5, f"{_ansi16m(255, 0, 0)}hello{Colors.END}"),
             ("background colors", f"{Colors.BG_RED}hello{Colors.BG_END} world",
                 0, 5, f"{Colors.BG_RED}hello{Colors.BG_END}"),
             ("styles", f"{Styles.BOLD}hello{Styles.BOLD_END} world", 0, 5, f"{Styles.BOLD}hello{Styles.BOLD_END}"),

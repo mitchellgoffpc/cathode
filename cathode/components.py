@@ -20,8 +20,7 @@ Side = Literal['top', 'bottom', 'left', 'right']
 Spacing = int | dict[Side, int]
 Length = int | float | None
 
-def get_spacing_dict(spacing: Spacing) -> dict[Side, int]:
-    """Normalize a `Spacing` value into a dict mapping each side to its integer spacing."""
+def _get_spacing_dict(spacing: Spacing) -> dict[Side, int]:
     assert isinstance(spacing, (int, dict)), "Spacing must be an int or a dict with side keys"
     return {side: spacing if isinstance(spacing, int) else spacing.get(side, 0) for side in get_args(Side)}
 
@@ -52,8 +51,8 @@ class Element(Component):
 
     def __post_init__(self) -> None:
         """Normalize spacing fields and initialize the children list."""
-        self.margins = get_spacing_dict(self.margin)
-        self.paddings = get_spacing_dict(self.padding)
+        self.margins = _get_spacing_dict(self.margin)
+        self.paddings = _get_spacing_dict(self.padding)
         self.borders = {side: int(side in self.border) for side in get_args(Side)}
         self.children: list[Component | None] = []
 

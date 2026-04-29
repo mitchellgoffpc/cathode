@@ -10,29 +10,26 @@ def layout(
     tree: ElementTree, element: Element, available_width: int | None = None, available_height: int | None = None,
 ) -> None:
     """Compute and cache widths, heights, and offsets for `element` and its descendants."""
-    collapse_tree(tree, element)
-    compute_lengths(tree, element, Axis.HORIZONTAL, available_width)
-    compute_lengths(tree, element, Axis.VERTICAL, available_height)
-    compute_offsets(tree, element)
+    _collapse_tree(tree, element)
+    _compute_lengths(tree, element, Axis.HORIZONTAL, available_width)
+    _compute_lengths(tree, element, Axis.VERTICAL, available_height)
+    _compute_offsets(tree, element)
 
-def collapse_tree(tree: ElementTree, element: Element) -> None:
-    """Populate `tree.collapsed_children` by flattening widgets out of `element`'s subtree."""
+def _collapse_tree(tree: ElementTree, element: Element) -> None:
     tree.collapsed_children[element.uuid] = list(chain.from_iterable(
-        collapse_children(tree, child) for child in tree.children[element.uuid]))
+        _collapse_children(tree, child) for child in tree.children[element.uuid]))
     for child in tree.collapsed_children[element.uuid]:
-        collapse_tree(tree, child)
+        _collapse_tree(tree, child)
 
-def collapse_children(tree: ElementTree, component: Component | None) -> list[Element]:
-    """Return the visible `Element` descendants of `component`, descending through widgets."""
+def _collapse_children(tree: ElementTree, component: Component | None) -> list[Element]:
     match component:
         case None: return []
         case Widget():
-            return list(chain.from_iterable(collapse_children(tree, child) for child in tree.children[component.uuid]))
+            return list(chain.from_iterable(_collapse_children(tree, child) for child in tree.children[component.uuid]))
         case Element(): return [component] if component.visible else []
         case _: raise ValueError(f"Unknown component type: {type(component)}")
 
-def compute_lengths(tree: ElementTree, element: Element, axis: Axis, available_length: int | None = None) -> None:
-    """Resolve and cache the length of `element` and its children along `axis`."""
+def _compute_lengths(tree: ElementTree, element: Element, axis: Axis, available_length: int | None = None) -> None:
     flex = element.flex if isinstance(element, Box) else Axis.VERTICAL
     collapsed = tree.collapsed_children[element.uuid]
     child_lengths = [child.length(axis) for child in collapsed]
@@ -47,14 +44,14 @@ def compute_lengths(tree: ElementTree, element: Element, axis: Axis, available_l
     for child, child_length in zip(collapsed, child_lengths, strict=True):
         if isinstance(child_length, int):
             child_avail = min(remaining_length, child_length) if remaining_length is not None else child_length
-            compute_lengths(tree, child, axis, child_avail)
+            _compute_lengths(tree, child, axis, child_avail)
             if flex is axis and remaining_length is not None:
                 remaining_length = max(0, remaining_length - computed_lengths[child.uuid])
 
     # Second: flexible-length children (None)
     for child, child_length in zip(collapsed, child_lengths, strict=True):
         if child_length is None or (isinstance(child_length, float) and remaining_length is None):
-            compute_lengths(tree, child, axis, remaining_length)
+            _compute_lengths(tree, child, axis, remaining_length)
             if flex is axis and remaining_length is not None:
                 remaining_length = max(0, remaining_length - computed_lengths[child.uuid])
 
@@ -65,7 +62,7 @@ def compute_lengths(tree: ElementTree, element: Element, axis: Axis, available_l
         for child, child_length in zip(collapsed, child_lengths, strict=True):
             if isinstance(child_length, float):
                 scaled_length = min(remaining_length, int(child_length * scale))
-                compute_lengths(tree, child, axis, scaled_length)
+                _compute_lengths(tree, child, axis, scaled_length)
                 if flex is axis:
                     remaining_length = max(0, remaining_length - computed_lengths[child.uuid])
 
@@ -92,8 +89,7 @@ def compute_lengths(tree: ElementTree, element: Element, axis: Axis, available_l
     computed_lengths[element.uuid] = (
         min(available_length, final_length) if available_length is not None else final_length)
 
-def compute_offsets(tree: ElementTree, element: Element) -> None:
-    """Compute and cache `(x, y)` offsets for `element` and its descendants."""
+def _compute_offsets(tree: ElementTree, element: Element) -> None:
     flex = element.flex if isinstance(element, Box) else Axis.VERTICAL
     x_offset = element.margins['left'] + element.borders['left'] + element.paddings['left']
     y_offset = element.margins['top'] + element.borders['top'] + element.paddings['top']
@@ -104,4 +100,4 @@ def compute_offsets(tree: ElementTree, element: Element) -> None:
             x_offset += tree.widths[child.uuid]
         else:
             y_offset += tree.heights[child.uuid]
-        compute_offsets(tree, child)
+        _compute_offsets(tree, child)

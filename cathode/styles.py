@@ -75,35 +75,35 @@ class Styles:
     @staticmethod
     def bold(text: str) -> str:
         """Wrap `text` in ANSI bold escape codes."""
-        return apply_style(text, start=Styles.BOLD, end=Styles.BOLD_END)
+        return _apply_style(text, start=Styles.BOLD, end=Styles.BOLD_END)
     @staticmethod
     def dim(text: str) -> str:
         """Wrap `text` in ANSI dim escape codes."""
-        return apply_style(text, start=Styles.DIM, end=Styles.DIM_END)
+        return _apply_style(text, start=Styles.DIM, end=Styles.DIM_END)
     @staticmethod
     def italic(text: str) -> str:
         """Wrap `text` in ANSI italic escape codes."""
-        return apply_style(text, start=Styles.ITALIC, end=Styles.ITALIC_END)
+        return _apply_style(text, start=Styles.ITALIC, end=Styles.ITALIC_END)
     @staticmethod
     def underline(text: str) -> str:
         """Wrap `text` in ANSI underline escape codes."""
-        return apply_style(text, start=Styles.UNDERLINE, end=Styles.UNDERLINE_END)
+        return _apply_style(text, start=Styles.UNDERLINE, end=Styles.UNDERLINE_END)
     @staticmethod
     def overline(text: str) -> str:
         """Wrap `text` in ANSI overline escape codes."""
-        return apply_style(text, start=Styles.OVERLINE, end=Styles.OVERLINE_END)
+        return _apply_style(text, start=Styles.OVERLINE, end=Styles.OVERLINE_END)
     @staticmethod
     def inverse(text: str) -> str:
         """Wrap `text` in ANSI inverse-video escape codes."""
-        return apply_style(text, start=Styles.INVERSE, end=Styles.INVERSE_END)
+        return _apply_style(text, start=Styles.INVERSE, end=Styles.INVERSE_END)
     @staticmethod
     def hidden(text: str) -> str:
         """Wrap `text` in ANSI hidden escape codes."""
-        return apply_style(text, start=Styles.HIDDEN, end=Styles.HIDDEN_END)
+        return _apply_style(text, start=Styles.HIDDEN, end=Styles.HIDDEN_END)
     @staticmethod
     def strikethrough(text: str) -> str:
         """Wrap `text` in ANSI strikethrough escape codes."""
-        return apply_style(text, start=Styles.STRIKETHROUGH, end=Styles.STRIKETHROUGH_END)
+        return _apply_style(text, start=Styles.STRIKETHROUGH, end=Styles.STRIKETHROUGH_END)
 
 class Colors:
     """ANSI color escape codes for the standard 16 foreground and background colors."""
@@ -147,54 +147,54 @@ class Colors:
     @staticmethod
     def HEX(code: str) -> str:
         """Return the foreground ANSI escape for the hex color `code`."""
-        return hex_to_best_ansi(code)
+        return _hex_to_best_ansi(code)
     @staticmethod
     def RGB(rgb: tuple[int, int, int]) -> str:
         """Return the foreground ANSI escape for the given RGB triple."""
-        return rgb_to_best_ansi(*rgb)
+        return _rgb_to_best_ansi(*rgb)
     @staticmethod
     def BG_HEX(code: str) -> str:
         """Return the background ANSI escape for the hex color `code`."""
-        return hex_to_best_ansi(code, offset=ANSI_BACKGROUND_OFFSET)
+        return _hex_to_best_ansi(code, offset=ANSI_BACKGROUND_OFFSET)
     @staticmethod
     def BG_RGB(rgb: tuple[int, int, int]) -> str:
         """Return the background ANSI escape for the given RGB triple."""
-        return rgb_to_best_ansi(*rgb, offset=ANSI_BACKGROUND_OFFSET)
+        return _rgb_to_best_ansi(*rgb, offset=ANSI_BACKGROUND_OFFSET)
 
     @staticmethod
     def ansi(text: str, code: str) -> str:
         """Wrap `text` in the given foreground ANSI `code` and a reset."""
-        return apply_style(text, start=code, end=Colors.END)
+        return _apply_style(text, start=code, end=Colors.END)
     @staticmethod
     def hex(text: str, code: str) -> str:
         """Color `text` with the foreground hex color `code`."""
-        return apply_style(text, start=hex_to_best_ansi(code), end=Colors.END)
+        return _apply_style(text, start=_hex_to_best_ansi(code), end=Colors.END)
     @staticmethod
     def rgb(text: str, rgb: tuple[int, int, int]) -> str:
         """Color `text` with the foreground RGB triple."""
-        return apply_style(text, start=rgb_to_best_ansi(*rgb), end=Colors.END)
+        return _apply_style(text, start=_rgb_to_best_ansi(*rgb), end=Colors.END)
 
     @staticmethod
     def bg_ansi(text: str, code: str) -> str:
         """Wrap `text` in the given background ANSI `code` and a reset, if `code` is non-empty."""
-        return apply_style(text, start=code, end=Colors.BG_END) if code else text
+        return _apply_style(text, start=code, end=Colors.BG_END) if code else text
     @staticmethod
     def bg_hex(text: str, code: str) -> str:
         """Color the background of `text` with the hex color `code`."""
-        return apply_style(text, start=hex_to_best_ansi(code, offset=ANSI_BACKGROUND_OFFSET), end=Colors.BG_END)
+        return _apply_style(text, start=_hex_to_best_ansi(code, offset=ANSI_BACKGROUND_OFFSET), end=Colors.BG_END)
     @staticmethod
     def bg_rgb(text: str, rgb: tuple[int, int, int]) -> str:
         """Color the background of `text` with the RGB triple."""
-        return apply_style(text, start=rgb_to_best_ansi(*rgb, offset=ANSI_BACKGROUND_OFFSET), end=Colors.BG_END)
+        return _apply_style(text, start=_rgb_to_best_ansi(*rgb, offset=ANSI_BACKGROUND_OFFSET), end=Colors.BG_END)
 
     @staticmethod
     def apply(text: str, color: Color | None) -> str:
         """Apply `color` to the foreground of `text`, accepting either a hex string or RGB triple."""
-        return apply_style(text, start=color_to_ansi(color, background=False), end=Colors.END)
+        return _apply_style(text, start=color_to_ansi(color, background=False), end=Colors.END)
     @staticmethod
     def apply_bg(text: str, color: Color | None) -> str:
         """Apply `color` to the background of `text`, accepting either a hex string or RGB triple."""
-        return apply_style(text, start=color_to_ansi(color, background=True), end=Colors.BG_END)
+        return _apply_style(text, start=color_to_ansi(color, background=True), end=Colors.BG_END)
 
     @staticmethod
     def blend(a: tuple[int, int, int], b: tuple[int, int, int], alpha: float) -> tuple[int, int, int]:
@@ -212,42 +212,36 @@ XTERM_COLORS: dict[int, tuple[int, int, int]] = (
     {16 + 36 * r + 6 * g + b: (LEVELS[r], LEVELS[g], LEVELS[b]) for r in range(6) for g in range(6) for b in range(6)} |
     {232 + i: (8 + 10 * i, 8 + 10 * i, 8 + 10 * i) for i in range(24)})
 
-def srgb_to_linear(value: int) -> float:
-    """Convert an sRGB 8-bit channel `value` to linear-light intensity in `[0, 1]`."""
+def _srgb_to_linear(value: int) -> float:
     c = value / 255.0
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
-def rgb_to_xyz(r: int, g: int, b: int) -> tuple[float, float, float]:
-    """Convert sRGB 8-bit channels to CIE XYZ using the D65 illuminant."""
-    x, y, z = srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b)
+def _rgb_to_xyz(r: int, g: int, b: int) -> tuple[float, float, float]:
+    x, y, z = _srgb_to_linear(r), _srgb_to_linear(g), _srgb_to_linear(b)
     return (
         x * 0.4124 + y * 0.3576 + z * 0.1805,
         x * 0.2126 + y * 0.7152 + z * 0.0722,
         x * 0.0193 + y * 0.1192 + z * 0.9505)
 
-def xyz_to_lab(x: float, y: float, z: float) -> tuple[float, float, float]:
-    """Convert a CIE XYZ color to CIE L*a*b* using the D65 reference white."""
+def _xyz_to_lab(x: float, y: float, z: float) -> tuple[float, float, float]:
     xr, yr, zr = x / 0.95047, y / 1.00000, z / 1.08883
     def f(t: float) -> float:
         return t ** (1.0 / 3.0) if t > 0.008856 else 7.787 * t + 16.0 / 116.0
     fx, fy, fz = f(xr), f(yr), f(zr)
     return 116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz)
 
-def perceptual_distance(a: tuple[int, int, int], b: tuple[int, int, int]) -> float:
-    """Return the CIE76 Lab Euclidean distance between two RGB colors."""
-    x1, y1, z1 = rgb_to_xyz(*a)
-    x2, y2, z2 = rgb_to_xyz(*b)
-    l1, a1, b1 = xyz_to_lab(x1, y1, z1)
-    l2, a2, b2 = xyz_to_lab(x2, y2, z2)
+def _perceptual_distance(a: tuple[int, int, int], b: tuple[int, int, int]) -> float:
+    x1, y1, z1 = _rgb_to_xyz(*a)
+    x2, y2, z2 = _rgb_to_xyz(*b)
+    l1, a1, b1 = _xyz_to_lab(x1, y1, z1)
+    l2, a2, b2 = _xyz_to_lab(x2, y2, z2)
     dl, da, db = l1 - l2, a1 - a2, b1 - b2
     return (dl * dl + da * da + db * db) ** 0.5
 
-def rgb_to_ansi256(red: int, green: int, blue: int) -> int:
-    """Return the xterm 256-color index closest to the given RGB triple."""
-    return min(XTERM_COLORS, key=lambda i: perceptual_distance(XTERM_COLORS[i], (red, green, blue)))
+def _rgb_to_ansi256(red: int, green: int, blue: int) -> int:
+    return min(XTERM_COLORS, key=lambda i: _perceptual_distance(XTERM_COLORS[i], (red, green, blue)))
 
-def ansi256_to_ansi(code: int) -> int:
-    """Approximate an xterm 256-color `code` as the nearest 16-color ANSI code."""
+def _ansi256_to_ansi(code: int) -> int:
     if code < 8:
         return 30 + code
     if code < 16:
@@ -274,19 +268,17 @@ def ansi256_to_ansi(code: int) -> int:
 
     return result
 
-def rgb_to_best_ansi(red: int, green: int, blue: int, *, offset: int = 0) -> str:
-    """Return the highest-fidelity ANSI escape for the RGB triple supported by the current terminal."""
+def _rgb_to_best_ansi(red: int, green: int, blue: int, *, offset: int = 0) -> str:
     if ANSI_16M_SUPPORT:
-        return ansi16m(red, green, blue, offset=offset)
+        return _ansi16m(red, green, blue, offset=offset)
     elif ANSI_256_SUPPORT:
-        code = rgb_to_ansi256(red, green, blue)
-        return ansi256(code, offset=offset)
+        code = _rgb_to_ansi256(red, green, blue)
+        return _ansi256(code, offset=offset)
     else:
-        code = ansi256_to_ansi(rgb_to_ansi256(red, green, blue))
-        return ansi16(code, offset=offset)
+        code = _ansi256_to_ansi(_rgb_to_ansi256(red, green, blue))
+        return _ansi16(code, offset=offset)
 
-def hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
-    """Parse a 3- or 6-digit hex color string into an `(r, g, b)` triple."""
+def _hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
     matches = re.search(r'[a-f\d]{6}|[a-f\d]{3}', str(hex_str), re.IGNORECASE)
     if not matches:
         return (0, 0, 0)
@@ -298,36 +290,31 @@ def hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
     integer = int(color_string, 16)
     return (integer >> 16) & 0xFF, (integer >> 8) & 0xFF, integer & 0xFF
 
-def hex_to_best_ansi(hex_str: str, *, offset: int = 0) -> str:
-    """Return the best ANSI escape for the hex color `hex_str` supported by the terminal."""
-    return rgb_to_best_ansi(*hex_to_rgb(hex_str), offset=offset)
+def _hex_to_best_ansi(hex_str: str, *, offset: int = 0) -> str:
+    return _rgb_to_best_ansi(*_hex_to_rgb(hex_str), offset=offset)
 
 def color_to_ansi(color: Color | None, *, background: bool) -> str:
     """Return the foreground or background ANSI escape for `color`, or empty string for `None`."""
     offset = ANSI_BACKGROUND_OFFSET if background else 0
     match color:
         case None: return ''
-        case (int(r), int(g), int(b)): return rgb_to_best_ansi(r, g, b, offset=offset)
-        case str() as hex_color: return hex_to_best_ansi(hex_color, offset=offset)
+        case (int(r), int(g), int(b)): return _rgb_to_best_ansi(r, g, b, offset=offset)
+        case str() as hex_color: return _hex_to_best_ansi(hex_color, offset=offset)
         case _: raise ValueError(f"Invalid color value: {color}")
 
 
 # ANSI escape helpers
 
-def apply_style(text: str, start: str, end: str) -> str:
-    """Wrap `text` between the `start` and `end` escape sequences, or return unchanged if `start` is empty."""
+def _apply_style(text: str, start: str, end: str) -> str:
     return f"{start}{text}{end}" if start else text
 
-def ansi16(code: int, *, offset: int = 0) -> str:
-    """Return the 16-color ANSI escape for `code`, shifted by `offset` for backgrounds."""
+def _ansi16(code: int, *, offset: int = 0) -> str:
     return f"\u001B[{code + offset}m"
 
-def ansi256(code: int, *, offset: int = 0) -> str:
-    """Return the 256-color ANSI escape for `code`, shifted by `offset` for backgrounds."""
+def _ansi256(code: int, *, offset: int = 0) -> str:
     return f"\u001B[{38 + offset};5;{code}m"
 
-def ansi16m(red: int, green: int, blue: int, *, offset: int = 0) -> str:
-    """Return the 24-bit truecolor ANSI escape for the given RGB triple."""
+def _ansi16m(red: int, green: int, blue: int, *, offset: int = 0) -> str:
     return f"\u001B[{38 + offset};2;{red};{green};{blue}m"
 
 def ansi_len(text: str) -> int:

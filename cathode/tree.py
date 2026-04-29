@@ -91,11 +91,10 @@ def mount(tree: ElementTree, component: Component) -> None:
             tree.parents[child.uuid] = component.uuid
 
 # Remove a component and all its children from the tree
-def unmount(tree: ElementTree, component: Component) -> None:
-    """Remove `component` and its descendants from `tree`, unmounting widgets bottom-up."""
+def _unmount(tree: ElementTree, component: Component) -> None:
     for child in tree.children[component.uuid]:
         if child:
-            unmount(tree, child)
+            _unmount(tree, child)
     del tree.nodes[component.uuid], tree.children[component.uuid], tree.parents[component.uuid]
     tree.collapsed_children.pop(component.uuid, None)
     tree.offsets.pop(component.uuid, None)
@@ -125,12 +124,12 @@ def update(tree: ElementTree, component: Component) -> None:
             tree.parents[new_child.uuid] = uuid
         elif old_child and not new_child:
             # Child removed
-            unmount(tree, old_child)
+            _unmount(tree, old_child)
             tree.children[uuid][i] = None
         elif old_child and new_child and type(old_child) is not type(new_child):
             # Class changed, replace the child
             assert tree.parents[old_child.uuid] == uuid
-            unmount(tree, old_child)
+            _unmount(tree, old_child)
             mount(tree, new_child)
             tree.parents[new_child.uuid] = uuid
             tree.children[uuid][i] = new_child

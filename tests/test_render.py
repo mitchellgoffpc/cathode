@@ -4,7 +4,7 @@ import unittest
 
 from cathode.components import Box, Side, Spacing, Text
 from cathode.layout import layout
-from cathode.render import render, split_input_sequence
+from cathode.render import _split_input_sequence, render
 from cathode.styles import Axis, Borders, Colors
 from cathode.tree import ElementTree, mount
 from tests.helpers import DeepTree, WideTree
@@ -33,7 +33,7 @@ class TestInputHandling(unittest.TestCase):
         ]
         for sequence, expected in test_cases:
             with self.subTest(sequence=sequence):
-                assert split_input_sequence(sequence) == expected
+                assert _split_input_sequence(sequence) == expected
 
 
 class TestRender(unittest.TestCase):

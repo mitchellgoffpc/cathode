@@ -9,13 +9,11 @@ from cathode.styles import Axis, Color, Colors, Styles, Wrap
 
 REMOVE_CONTROL_CHARS = dict.fromkeys(range(32)) | {0xa: 0xa, 0xd: 0xa}
 
-def is_stop_char(ch: str) -> bool:
-    """Return whether `ch` is a word-boundary character used by word-wise navigation."""
+def _is_stop_char(ch: str) -> bool:
     return ch in ' \t\n<>@/|&;(){}[]"\'`'
 
-# TODO: Two wrap_lines implementations; can this be replaced with the 'real' one in styles.py?
-def wrap_lines(text: str, width: int, wrap: Wrap) -> Iterator[tuple[str, bool]]:
-    """Yield `(line, is_hard_break)` tuples wrapping `text` to `width` columns under `wrap` mode."""
+# TODO: Two _wrap_lines implementations; can this be replaced with the 'real' one in styles.py?
+def _wrap_lines(text: str, width: int, wrap: Wrap) -> Iterator[tuple[str, bool]]:
     if width <= 0:
         return
 
@@ -229,17 +227,17 @@ class TextBoxController(BaseController[TextBox]):
                 text, cursor_pos, history_idx = self.change_history_idx(-1)
         elif ch == '\x7f' and cursor_pos > 0:  # Alt+Backspace, delete word
             pos = cursor_pos - 1
-            while pos >= 0 and is_stop_char(text[pos]):
+            while pos >= 0 and _is_stop_char(text[pos]):
                 pos -= 1
-            while pos >= 0 and not is_stop_char(text[pos]):
+            while pos >= 0 and not _is_stop_char(text[pos]):
                 pos -= 1
             text = text[:pos + 1] + text[cursor_pos:]
             cursor_pos = pos + 1
         elif ch == 'd':  # Alt+D, delete word
             pos = cursor_pos
-            while pos < len(text) and is_stop_char(text[pos]):
+            while pos < len(text) and _is_stop_char(text[pos]):
                 pos += 1
-            while pos < len(text) and not is_stop_char(text[pos]):
+            while pos < len(text) and not _is_stop_char(text[pos]):
                 pos += 1
             text = text[:cursor_pos] + text[pos:]
         elif ch == '\r':  # Alt+Enter, newline
@@ -247,16 +245,16 @@ class TextBoxController(BaseController[TextBox]):
             cursor_pos += 1
         elif ch == 'f':  # Alt+F, move forward one word
             pos = cursor_pos
-            while pos < len(text) and not is_stop_char(text[pos]):
+            while pos < len(text) and not _is_stop_char(text[pos]):
                 pos += 1
-            while pos < len(text) and is_stop_char(text[pos]):
+            while pos < len(text) and _is_stop_char(text[pos]):
                 pos += 1
             cursor_pos = pos
         elif ch == 'b':  # Alt+B, move backward one word
             pos = cursor_pos - 1
-            while pos >= 0 and is_stop_char(text[pos]):
+            while pos >= 0 and _is_stop_char(text[pos]):
                 pos -= 1
-            while pos >= 0 and not is_stop_char(text[pos]):
+            while pos >= 0 and not _is_stop_char(text[pos]):
                 pos -= 1
             cursor_pos = pos + 1
 
@@ -294,19 +292,19 @@ class TextBoxController(BaseController[TextBox]):
     def get_cursor_line_col(self) -> tuple[int, int]:
         """Return the visual `(line, column)` position of the cursor in the wrapped text."""
         text_before_cursor = self.text[:self.cursor_pos]
-        lines = list(wrap_lines(text_before_cursor, self.content_width, self.props.wrap))
+        lines = list(_wrap_lines(text_before_cursor, self.content_width, self.props.wrap))
         if not lines:
             return 0, 0
         return len(lines) - 1, len(lines[-1][0])
 
     def get_total_lines(self) -> int:
         """Return the total number of visual lines in the wrapped text."""
-        return sum(1 for _ in wrap_lines(self.text, self.content_width, self.props.wrap))
+        return sum(1 for _ in _wrap_lines(self.text, self.content_width, self.props.wrap))
 
     def get_visual_line_bounds(self, line: int) -> tuple[int, int]:
         """Return the `(start, end)` text indices for visual line `line`."""
         position = 0
-        for i, (line_content, is_hard) in enumerate(wrap_lines(self.text, self.content_width, self.props.wrap)):
+        for i, (line_content, is_hard) in enumerate(_wrap_lines(self.text, self.content_width, self.props.wrap)):
             if i == line:
                 return position, position + len(line_content)
             position += len(line_content)
