@@ -84,6 +84,45 @@ def test_widget_mount_and_update() -> None:
     assert tree.children == {parent.uuid: [box4], box4.uuid: [None]}
 
 
+def test_handle_unmount_called_on_removal_and_replacement() -> None:
+    unmounted: list[int] = []
+
+    @dataclass
+    class Tracked(Widget):
+        tag: int
+
+        class Controller(BaseController):
+            def handle_unmount(self) -> None:
+                unmounted.append(self.props.tag)
+                super().handle_unmount()
+
+            def contents(self) -> list[Component | None]:
+                return [Text(f"tag {self.props.tag}")]
+
+    @dataclass
+    class Host(Widget):
+        class Controller(BaseController):
+            child: Component | None = Tracked(tag=1)
+
+            def contents(self) -> list[Component | None]:
+                return [self.child]
+
+    host = Host()
+    tree = ElementTree(host)
+    mount(tree, host)
+
+    host.controller.child = Text("now a text")  # ty: ignore[unresolved-attribute]
+    update(tree, host)
+    assert unmounted == [1]
+
+    host.controller.child = Tracked(tag=2)  # ty: ignore[unresolved-attribute]
+    update(tree, host)
+
+    host.controller.child = None  # ty: ignore[unresolved-attribute]
+    update(tree, host)
+    assert unmounted == [1, 2]
+
+
 @pytest.mark.parametrize("widget", [WideTree, DeepTree], ids=lambda w: w.__name__)
 def test_update_performance(widget: type) -> None:
     root = Box()[widget()]
