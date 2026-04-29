@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from functools import partial
 
 from cathode.components import BaseController, Component, Length, State, Text, Widget
+from cathode.cursor import paste_end, paste_start
 from cathode.styles import Axis, Color, Colors, Styles, Wrap, iter_wrapped_lines
 
 REMOVE_CONTROL_CHARS = dict.fromkeys(range(32)) | {0xa: 0xa, 0xd: 0xa}
@@ -94,7 +95,11 @@ class TextBoxController(BaseController[TextBox]):
         cursor_pos = self.cursor_pos
         history_idx = self.history_idx
 
-        if ch == '\r':  # Enter, submit
+        if ch.startswith(paste_start):  # Bracketed paste, insert literally without submitting
+            ch = ch.removeprefix(paste_start).removesuffix(paste_end).translate(REMOVE_CONTROL_CHARS)
+            text = text[:cursor_pos] + ch + text[cursor_pos:]
+            cursor_pos += len(ch)
+        elif ch == '\r':  # Enter, submit
             if self.props.handle_submit and self.props.handle_submit(text):
                 self.undo_stack.clear()
                 self.history = [*self.history[:self.history_idx], text, '']

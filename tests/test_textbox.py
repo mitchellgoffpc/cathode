@@ -231,6 +231,14 @@ class TestTextBoxInputHandling(unittest.TestCase):
         textbox.handle_input('\x7f')
         handle_change.assert_not_called()
 
+    def test_textbox_bracketed_paste(self) -> None:
+        handle_submit = Mock(return_value=True)
+        textbox = TextBoxController(TextBox(width=20, handle_submit=handle_submit))
+        textbox.handle_input('\x1b[200~line one\rline two\nline three\x1b[201~')
+        assert textbox.text == 'line one\nline two\nline three'
+        assert textbox.cursor_pos == len(textbox.text)
+        handle_submit.assert_not_called()
+
     def test_textbox_enter_and_submit_handling(self) -> None:
         handle_submit = Mock(return_value=True)
         textbox = TextBoxController(TextBox(width=20, handle_submit=handle_submit))

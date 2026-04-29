@@ -34,6 +34,9 @@ scroll_down = f"{ESC}T"
 clear_screen = '\u001Bc'
 clear_terminal = f"{erase_screen}{ESC}0f" if is_windows else f"{erase_screen}{ESC}3J{ESC}H"
 
+paste_start = f"{ESC}200~"
+paste_end = f"{ESC}201~"
+
 
 # Show / hide cursor
 

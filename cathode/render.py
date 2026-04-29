@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from itertools import zip_longest
 
 from cathode.components import Box, Component, Element, Side, Text
-from cathode.cursor import ESC, cursor_up, erase_end_line, erase_line, hide_cursor, show_cursor
+from cathode.cursor import ESC, cursor_up, erase_end_line, erase_line, hide_cursor, paste_end, paste_start, show_cursor
 from cathode.layout import layout
 from cathode.styles import Axis, BorderStyle, Color, Colors, ansi_len, color_to_ansi
 from cathode.tree import ElementTree, depth, mount, propogate, update
@@ -24,6 +24,8 @@ DrawFn = Callable[[ElementTree, Element, list[str], os.terminal_size], list[str]
 
 enter_alternative_screen = f"{ESC}?1049h"
 exit_alternative_screen = f"{ESC}?1049l"
+enable_bracketed_paste = f"{ESC}?2004h"
+disable_bracketed_paste = f"{ESC}?2004l"
 
 
 # Input parsing
@@ -37,7 +39,22 @@ def _split_input_sequence(sequence: str) -> list[str]:
         last = match.end()
     if last < len(sequence):
         chunks.append(sequence[last:])
-    return chunks
+    return _merge_paste_chunks(chunks)
+
+def _merge_paste_chunks(chunks: list[str]) -> list[str]:
+    merged: list[str] = []
+    i = 0
+    while i < len(chunks):
+        if chunks[i] == paste_start:
+            j = i + 1
+            while j < len(chunks) and chunks[j] != paste_end:
+                j += 1
+            merged.append(''.join(chunks[i:j + 1]))
+            i = j + 1
+        else:
+            merged.append(chunks[i])
+            i += 1
+    return merged
 
 # Context manager to set O_NONBLOCK on a file descriptor
 @contextmanager
@@ -138,7 +155,8 @@ def _terminal_session(alt_screen: bool = False, raw: bool = False) -> Iterator[i
     old_settings = termios.tcgetattr(fd)
     if alt_screen:
         sys.stdout.write(enter_alternative_screen)
-        sys.stdout.flush()
+    sys.stdout.write(enable_bracketed_paste)
+    sys.stdout.flush()
     hide_cursor()
     try:
         if raw:
@@ -152,9 +170,10 @@ def _terminal_session(alt_screen: bool = False, raw: bool = False) -> Iterator[i
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         show_cursor()
+        sys.stdout.write(disable_bracketed_paste)
         if alt_screen:
             sys.stdout.write(exit_alternative_screen)
-            sys.stdout.flush()
+        sys.stdout.flush()
 
 
 # Draw strategies

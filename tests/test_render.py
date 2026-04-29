@@ -30,6 +30,8 @@ class TestInputHandling(unittest.TestCase):
             ("a\x1b[12;34Bz", ["a", "\x1b[12;34B", "z"]),
             ("a\nb", ["a", "\n", "b"]),
             ("\x7f\x7f\x7f", ["\x7f", "\x7f", "\x7f"]),
+            ("a\x1b[200~hi\nthere\rfoo\x1b[201~b", ["a", "\x1b[200~hi\nthere\rfoo\x1b[201~", "b"]),
+            ("\x1b[200~hi\nthere", ["\x1b[200~hi\nthere"]),
         ]
         for sequence, expected in test_cases:
             with self.subTest(sequence=sequence):
