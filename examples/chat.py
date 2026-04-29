@@ -7,7 +7,7 @@ import re
 from contextlib import suppress
 from dataclasses import dataclass
 
-from cathode import Box, Colors, Component, Text, TextBox, Widget, render_root
+from cathode import Box, Component, Text, TextBox, Widget, render_root
 from cathode.components import BaseController, State
 from cathode.styles import Color
 
@@ -52,7 +52,7 @@ def eliza_reply(text: str) -> str:
 
 
 def bubble(sender: str, text: str, color: Color) -> Component:
-    label = Text(text=Colors.apply(sender, color=color), padding={'left': 1, 'right': 1})
+    label = Text(text=sender, text_color=color, padding={'left': 1, 'right': 1})
     body = Text(text=text, padding={'left': 1, 'right': 1})
     return Box(border=['top', 'bottom', 'left', 'right'], border_color=color, margin={'top': 1})[label, body]
 
@@ -98,7 +98,7 @@ class Chat(Widget):
 
 
 async def main() -> None:
-    intro = Text(text=Colors.apply('ELIZA is listening.', color=BOT_COLOR))
+    intro = Text(text='ELIZA is listening.', text_color=BOT_COLOR)
     await render_root(Box()[intro, Chat()])
 
 if __name__ == '__main__':

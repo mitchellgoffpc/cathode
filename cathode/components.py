@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar, get_args
 from uuid import UUID, uuid4
 
-from cathode.styles import Axis, Borders, BorderStyle, Color, Wrap, wrap_lines
+from cathode.styles import Axis, Borders, BorderStyle, Color, Colors, Wrap, wrap_lines
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -83,6 +83,7 @@ class Text(Element):
 
     text: str
     wrap: Wrap = field(default=Wrap.WORDS, kw_only=True)
+    text_color: Color | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         """Initialize the element and the per-width wrap cache."""
@@ -96,7 +97,8 @@ class Text(Element):
     def wrapped(self, width: int) -> str:
         """Return the text wrapped to `width` columns, caching the result."""
         if width not in self._wrap_cache:
-            self._wrap_cache[width] = wrap_lines(self.text.replace('\t', ' ' * 8), width, wrap=self.wrap)
+            text = Colors.apply(self.text, self.text_color) if self.text_color is not None else self.text
+            self._wrap_cache[width] = wrap_lines(text.replace('\t', ' ' * 8), width, wrap=self.wrap)
         return self._wrap_cache[width]
 
 @dataclass
