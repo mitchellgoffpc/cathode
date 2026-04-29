@@ -13,15 +13,7 @@ from contextlib import contextmanager
 from itertools import zip_longest
 
 from cathode.components import Box, Component, Element, Side, Text
-from cathode.cursor import (
-    cursor_up,
-    enter_alternative_screen,
-    erase_end_line,
-    erase_line,
-    exit_alternative_screen,
-    hide_cursor,
-    show_cursor,
-)
+from cathode.cursor import ESC, cursor_up, erase_end_line, erase_line, hide_cursor, show_cursor
 from cathode.layout import layout
 from cathode.styles import Axis, BorderStyle, Color, Colors, ansi_len, color_to_ansi
 from cathode.tree import ElementTree, depth, mount, propogate, update
@@ -29,6 +21,9 @@ from cathode.tree import ElementTree, depth, mount, propogate, update
 CONTROL_SEQ_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z~]?|\x1b.|[\x00-\x1f\x7f]')
 
 DrawFn = Callable[[ElementTree, Element, list[str], os.terminal_size], list[str]]
+
+enter_alternative_screen = f"{ESC}?1049h"
+exit_alternative_screen = f"{ESC}?1049l"
 
 
 # Input parsing
@@ -102,6 +97,9 @@ def apply_chrome(rows: list[str], content_width: int, element: Element) -> list[
     rows = apply_spacing(rows, bordered_width, element.margins)
     return rows
 
+def _fit_height(rows: list[str], width: int, height: int) -> list[str]:
+    return rows[:height] + [' ' * width for _ in range(max(0, height - len(rows)))]
+
 def _render(tree: ElementTree, element: Element) -> list[str]:
     content_width = tree.widths[element.uuid] - element.chrome(Axis.HORIZONTAL)
     content_height = tree.heights[element.uuid] - element.chrome(Axis.VERTICAL)
@@ -110,7 +108,7 @@ def _render(tree: ElementTree, element: Element) -> list[str]:
         case Text():
             wrapped = element.wrapped(content_width)
             rows = [line + ' ' * (content_width - ansi_len(line)) for line in wrapped.split('\n')]
-            rows = rows + [' ' * content_width for _ in range(content_height - len(rows))]
+            rows = _fit_height(rows, content_width, content_height)
         case Box():
             children = tree.collapsed_children[element.uuid]
             child_rows = [_render(tree, child) for child in children]
@@ -120,10 +118,10 @@ def _render(tree: ElementTree, element: Element) -> list[str]:
                 rows = []
                 for crows, cwidth in zip(child_rows, child_widths, strict=True):
                     rows.extend([row + ' ' * (content_width - cwidth) for row in crows])
-                rows = rows + [' ' * content_width for _ in range(content_height - len(rows))]
+                rows = _fit_height(rows, content_width, content_height)
             else:
                 for crows, cwidth in zip(child_rows, child_widths, strict=True):
-                    crows.extend([' ' * cwidth for _ in range(content_height - len(crows))])
+                    crows[:] = _fit_height(crows, cwidth, content_height)
                 remaining_width = content_width - sum(child_widths)
                 child_rows.append([' ' * remaining_width for _ in range(content_height)])
                 rows = [''.join(row_parts) for row_parts in zip(*child_rows, strict=True)]

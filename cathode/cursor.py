@@ -34,9 +34,6 @@ scroll_down = f"{ESC}T"
 clear_screen = '\u001Bc'
 clear_terminal = f"{erase_screen}{ESC}0f" if is_windows else f"{erase_screen}{ESC}3J{ESC}H"
 
-enter_alternative_screen = f"{ESC}?1049h"
-exit_alternative_screen = f"{ESC}?1049l"
-
 
 # Show / hide cursor
 

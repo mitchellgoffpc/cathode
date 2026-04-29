@@ -75,6 +75,10 @@ class TestRender(unittest.TestCase):
         outer = Box(flex=Axis.HORIZONTAL)[Box(flex=Axis.VERTICAL)[Text("Top"), Text("Bottom")], Text("Side")]
         assert render_once(outer) == "Top   Side\nBottom    "
 
+    def test_horizontal_children_clip_to_constrained_height(self) -> None:
+        outer = Box(flex=Axis.HORIZONTAL, height=2)[Text("a\nb\nc"), Text("x")]
+        assert render_once(outer) == "ax\nb "
+
 
 class TestRenderMargin(unittest.TestCase):
     """Tests for margin rendering around elements."""
