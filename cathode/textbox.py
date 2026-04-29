@@ -1,47 +1,16 @@
 """Editable text box widget with cursor movement, selection, and undo/redo support."""
 from collections import deque
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
 
 from cathode.components import BaseController, Component, Length, State, Text, Widget
-from cathode.styles import Axis, Color, Colors, Styles, Wrap
+from cathode.styles import Axis, Color, Colors, Styles, Wrap, iter_wrapped_lines
 
 REMOVE_CONTROL_CHARS = dict.fromkeys(range(32)) | {0xa: 0xa, 0xd: 0xa}
 
 def _is_stop_char(ch: str) -> bool:
     return ch in ' \t\n<>@/|&;(){}[]"\'`'
-
-# TODO: Two _wrap_lines implementations; can this be replaced with the 'real' one in styles.py?
-def _wrap_lines(text: str, width: int, wrap: Wrap) -> Iterator[tuple[str, bool]]:
-    if width <= 0:
-        return
-
-    pos = 0
-    newline_pos = -1
-    while pos < len(text):
-        newline_pos = text.find('\n', pos)
-        if newline_pos != -1 and newline_pos - pos <= width:
-            yield text[pos:newline_pos], True
-            pos = newline_pos + 1
-        elif newline_pos == -1 and len(text) - pos <= width:
-            yield text[pos:], False
-            break
-        else:
-            segment_end = pos + width
-            if wrap is not Wrap.EXACT:
-                yield text[pos:segment_end], False
-                pos = segment_end
-            else:
-                space_pos = text.rfind(' ', pos, segment_end + 1)
-                if space_pos > pos:
-                    yield text[pos:space_pos + 1], False
-                    pos = space_pos + 1
-                else:
-                    yield text[pos:segment_end], False
-                    pos = segment_end
-    if newline_pos != -1:
-        yield '', False
 
 
 @dataclass
@@ -289,27 +258,28 @@ class TextBoxController(BaseController[TextBox]):
             return self.text, cursor_pos, self.history_idx
         return self.text, self.cursor_pos, self.history_idx
 
+    @property
+    def render_wrap(self) -> Wrap:
+        """Return the wrap mode used for rendering, mapping `Wrap.WORDS` to `Wrap.WORDS_WITH_CURSOR`."""
+        return Wrap.EXACT if self.props.wrap is Wrap.EXACT else Wrap.WORDS_WITH_CURSOR
+
     def get_cursor_line_col(self) -> tuple[int, int]:
         """Return the visual `(line, column)` position of the cursor in the wrapped text."""
         text_before_cursor = self.text[:self.cursor_pos]
-        lines = list(_wrap_lines(text_before_cursor, self.content_width, self.props.wrap))
+        lines = list(iter_wrapped_lines(text_before_cursor, self.content_width, self.render_wrap))
         if not lines:
             return 0, 0
-        return len(lines) - 1, len(lines[-1][0])
+        return len(lines) - 1, lines[-1].width
 
     def get_total_lines(self) -> int:
         """Return the total number of visual lines in the wrapped text."""
-        return sum(1 for _ in _wrap_lines(self.text, self.content_width, self.props.wrap))
+        return sum(1 for _ in iter_wrapped_lines(self.text, self.content_width, self.render_wrap))
 
     def get_visual_line_bounds(self, line: int) -> tuple[int, int]:
         """Return the `(start, end)` text indices for visual line `line`."""
-        position = 0
-        for i, (line_content, is_hard) in enumerate(_wrap_lines(self.text, self.content_width, self.props.wrap)):
+        for i, seg in enumerate(iter_wrapped_lines(self.text, self.content_width, self.render_wrap)):
             if i == line:
-                return position, position + len(line_content)
-            position += len(line_content)
-            if is_hard:
-                position += 1
+                return seg.source_start, seg.source_end
         return len(self.text), len(self.text)
 
     def contents(self) -> list[Component | None]:
@@ -341,6 +311,5 @@ class TextBoxController(BaseController[TextBox]):
                 under = text[cursor_pos:cursor_pos + 1] if cursor_pos < len(text) else ' '
                 styled_text = Colors.apply(before + Styles.inverse(under) + after, self.props.color)
 
-        wrap = Wrap.EXACT if self.props.wrap is Wrap.EXACT else Wrap.WORDS_WITH_CURSOR
-        self.text_ref = Text(styled_text, width=self.props.width, wrap=wrap)
+        self.text_ref = Text(styled_text, width=self.props.width, wrap=self.render_wrap)
         return [self.text_ref]

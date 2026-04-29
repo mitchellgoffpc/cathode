@@ -3,13 +3,14 @@ import os
 import re
 import unicodedata
 from collections import defaultdict, deque
-from dataclasses import dataclass
+from collections.abc import Iterator
 from enum import Enum
-from io import StringIO
+from typing import NamedTuple
 
 ANSI_BACKGROUND_OFFSET = 10
 ANSI_256_SUPPORT = '256color' in os.getenv("TERM", '')
 ANSI_16M_SUPPORT = 'truecolor' in os.getenv("COLORTERM", '') or '24bit' in os.getenv("COLORTERM", '')
+ANSI_RE = re.compile('\u001B\\[[0-9;]+m')
 
 Color = str | tuple[int, int, int]
 
@@ -26,8 +27,16 @@ class Wrap(Enum):
     WORDS = 'words'
     WORDS_WITH_CURSOR = 'words_with_cursor'
 
-@dataclass
-class BorderStyle:
+class WrappedLine(NamedTuple):
+    """A single visual line produced by `iter_wrapped_lines`."""
+
+    text: str
+    width: int
+    source_start: int
+    source_end: int
+    hard_break: bool
+
+class BorderStyle(NamedTuple):
     """Glyphs used to draw the eight segments of a box border."""
 
     top_left: str
@@ -428,58 +437,99 @@ def ansi_slice(string: str, start: int, end: int) -> str:
             reset += style_starts_to_stops[style]
     return ''.join(result) + reset
 
-def wrap_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) -> str:
-    """Wrap `content` to `max_width` columns using the strategy specified by `wrap`."""
+def _advance_source(content: str, src: int, visual_cols: int) -> int:
+    cols = 0
+    while src < len(content) and cols < visual_cols:
+        if m := ANSI_RE.match(content, src):
+            src = m.end()
+            continue
+        cols += 2 if unicodedata.east_asian_width(content[src]) in 'FW' else 1
+        src += 1
+    return src
+
+def iter_wrapped_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) -> Iterator[WrappedLine]:
+    """Wrap `content` to `max_width` columns, yielding one `WrappedLine` per visual line."""
     if wrap is Wrap.WORDS_WITH_CURSOR:
         max_width -= 1
-    if max_width == 0:
-        return ''
-    result = StringIO()
-    pos = 0
+    if max_width <= 0:
+        return
+    segments: list[WrappedLine] = []
+    pos = src = 0
     wrapped = False
+    acc_text, acc_width, acc_start = '', 0, -1
+
     while line := ansi_slice(content, pos, pos + max_width + 1):
         plaintext = ansi_strip(line)
-        if leading_newlines := len(plaintext) - len(plaintext.lstrip('\n')):  # leading newlines gets inserted directly
-            result.write(plaintext[:leading_newlines])
-            pos += leading_newlines
-            wrapped = False
+        if leading_newlines := len(plaintext) - len(plaintext.lstrip('\n')):
+            for i in range(leading_newlines):
+                if i == 0 and wrapped:
+                    wrapped = False
+                else:
+                    start = acc_start if acc_start >= 0 else src
+                    segments.append(WrappedLine(acc_text, acc_width, start, src, hard_break=True))
+                    acc_text, acc_width, acc_start = '', 0, -1
+                src += 1
+                pos += 1
             continue
+
         leading_whitespace = len(plaintext) - len(plaintext.lstrip(' \t'))
         if wrap in (Wrap.WORDS, Wrap.WORDS_WITH_CURSOR) and leading_whitespace:
-            # Handles a cursor off the right side of the textbox boundary, capping it at the edge
-            cursor_pos = len(line) - len(line.lstrip(' \t'))
-            if wrapped and wrap is Wrap.WORDS_WITH_CURSOR and cursor_pos < leading_whitespace:
-                result.seek(result.tell() - 1)
-                result.write(ansi_slice(line, cursor_pos, cursor_pos + 1))
-            if not wrapped:
-                result.write(ansi_slice(line, 0, leading_whitespace))
+            ws_advance = _advance_source(content, src, leading_whitespace) - src
+            if wrapped:
+                # Handles a cursor off the right side of the textbox boundary, capping it at the edge
+                cursor_pos_in_line = len(line) - len(line.lstrip(' \t'))
+                if wrap is Wrap.WORDS_WITH_CURSOR and cursor_pos_in_line < leading_whitespace:
+                    last = segments[-1]
+                    stub = ansi_slice(line, cursor_pos_in_line, cursor_pos_in_line + 1)
+                    new_text = ansi_slice(last.text, 0, last.width - 1) + stub
+                    segments[-1] = WrappedLine(
+                        new_text, last.width, last.source_start, last.source_end + ws_advance, last.hard_break)
+            else:
+                if acc_start < 0:
+                    acc_start = src
+                acc_text += ansi_slice(line, 0, leading_whitespace)
+                acc_width += leading_whitespace
             pos += leading_whitespace
+            src += ws_advance
             continue
 
-        if wrapped:
-            result.write('\n')
-        # if there's a newline in the next segment, wrap there
         if (newline_pos := plaintext.find('\n')) >= 0:
-            line_len = newline_pos
-            line = ansi_slice(content, pos, pos + line_len)
+            text = ansi_slice(content, pos, pos + newline_pos)
+            new_src = _advance_source(content, src, newline_pos)
+            start = acc_start if acc_start >= 0 else src
+            segments.append(WrappedLine(acc_text + text, acc_width + newline_pos, start, new_src, hard_break=True))
+            acc_text, acc_width, acc_start = '', 0, -1
+            pos += newline_pos + 1
+            src = new_src + 1
             wrapped = False
-        # if exact wrap / there's no spaces / line is short, wrap at max width
         elif wrap is Wrap.EXACT or ' ' not in plaintext or len(plaintext) <= max_width:
-            line_len = max_width
-            line = ansi_slice(content, pos, pos + max_width)
+            text = ansi_slice(content, pos, pos + max_width)
+            new_src = _advance_source(content, src, max_width)
+            start = acc_start if acc_start >= 0 else src
+            segments.append(WrappedLine(acc_text + text, acc_width + ansi_len(text), start, new_src, hard_break=False))
+            acc_text, acc_width, acc_start = '', 0, -1
+            pos += max_width
+            src = new_src
             wrapped = True
-        # if there's space at wrap point, wrap at max width + 1
-        elif plaintext[-1] == ' ':
-            line_len = max_width + 1
-            line = ansi_slice(content, pos, pos + max_width + (1 if wrap is Wrap.WORDS_WITH_CURSOR else 0))
-            wrapped = True
-        # otherwise, find the last whitespace before the wrap point
         else:
-            last_whitespace_idx = plaintext.rfind(' ')
-            line = ansi_slice(content, pos, pos + last_whitespace_idx + (1 if wrap is Wrap.WORDS_WITH_CURSOR else 0))
-            line_len = last_whitespace_idx + 1
+            break_pos = max_width if plaintext[-1] == ' ' else plaintext.rfind(' ')
+            slice_end = break_pos + (1 if wrap is Wrap.WORDS_WITH_CURSOR else 0)
+            text = ansi_slice(content, pos, pos + slice_end)
+            seg_end = _advance_source(content, src, slice_end)
+            new_src = _advance_source(content, src, break_pos + 1)
+            start = acc_start if acc_start >= 0 else src
+            segments.append(WrappedLine(acc_text + text, acc_width + ansi_len(text), start, seg_end, hard_break=False))
+            acc_text, acc_width, acc_start = '', 0, -1
+            pos += break_pos + 1
+            src = new_src
             wrapped = True
-        result.write(line)
-        pos += line_len
 
-    return result.getvalue()
+    if acc_start >= 0:
+        segments.append(WrappedLine(acc_text, acc_width, acc_start, src, hard_break=False))
+    elif segments and segments[-1].hard_break:
+        segments.append(WrappedLine('', 0, src, src, hard_break=False))
+    yield from segments
+
+def wrap_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) -> str:
+    """Wrap `content` to `max_width` columns using the strategy specified by `wrap`."""
+    return '\n'.join(seg.text for seg in iter_wrapped_lines(content, max_width, wrap))
