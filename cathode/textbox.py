@@ -265,11 +265,13 @@ class TextBoxController(BaseController[TextBox]):
 
     def get_cursor_line_col(self) -> tuple[int, int]:
         """Return the visual `(line, column)` position of the cursor in the wrapped text."""
-        text_before_cursor = self.text[:self.cursor_pos]
-        lines = list(iter_wrapped_lines(text_before_cursor, self.content_width, self.render_wrap))
-        if not lines:
-            return 0, 0
-        return len(lines) - 1, lines[-1].width
+        cursor_pos = self.cursor_pos
+        line, col = 0, 0
+        for i, seg in enumerate(iter_wrapped_lines(self.text, self.content_width, self.render_wrap)):
+            if seg.source_start > cursor_pos:
+                break
+            line, col = i, cursor_pos - seg.source_start
+        return line, col
 
     def get_total_lines(self) -> int:
         """Return the total number of visual lines in the wrapped text."""

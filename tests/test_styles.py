@@ -1,7 +1,18 @@
 """Tests for cathode.styles ANSI helpers and text wrapping."""
 import unittest
 
-from cathode.styles import Colors, Styles, Wrap, _ansi16m, _ansi256, ansi_len, ansi_slice, ansi_strip, wrap_lines
+from cathode.styles import (
+    Colors,
+    Styles,
+    Wrap,
+    _ansi16m,
+    _ansi256,
+    ansi_len,
+    ansi_slice,
+    ansi_strip,
+    iter_wrapped_lines,
+    wrap_lines,
+)
 
 
 class TestAnsiStrip(unittest.TestCase):
@@ -121,6 +132,19 @@ class TestWrapLines(unittest.TestCase):
         for description, input_text, expected, width in test_cases:
             with self.subTest(description=description):
                 assert wrap_lines(input_text, width, wrap=Wrap.WORDS) == expected
+
+    def test_iter_wrapped_lines_source_indices(self) -> None:
+        test_cases = [
+            ("words soft wrap at space", "hello world foo", 10, Wrap.WORDS, [(0, 5), (6, 15)]),
+            ("words long word break", "supercalifragilistic", 8, Wrap.WORDS, [(0, 8), (8, 16), (16, 20)]),
+            ("exact hard newlines", "a\nb\nc", 5, Wrap.EXACT, [(0, 1), (2, 3), (4, 5)]),
+            ("words skip leading whitespace on continuation", "a   \nb", 3, Wrap.WORDS, [(0, 3), (5, 6)]),
+            ("trailing newline emits empty line", "ab\n", 5, Wrap.EXACT, [(0, 2), (3, 3)]),
+        ]
+        for description, text, width, wrap, expected in test_cases:
+            with self.subTest(description=description):
+                bounds = [(s.source_start, s.source_end) for s in iter_wrapped_lines(text, width, wrap)]
+                assert bounds == expected
 
     def test_wrap_words_with_cursor(self) -> None:
         test_cases = [

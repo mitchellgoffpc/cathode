@@ -124,6 +124,24 @@ class TestTextBoxInputHandling(unittest.TestCase):
                     assert textbox.text == initial_text
                     assert textbox.cursor_pos == expected_cursor
 
+    def test_textbox_navigation_across_wrapped_lines(self) -> None:
+        # TextBox(width=10, wrap=WORDS) wraps "hello world foo" to "hello"/"world foo".
+        test_cases = [
+            ("down from line 0 to wrapped line 1", "hello world foo", 0, "\x1b[B", 6),
+            ("up from start of wrapped line 1 to line 0", "hello world foo", 6, "\x1b[A", 0),
+            ("up preserves column across wrap", "hello world foo", 8, "\x1b[A", 2),
+            ("down preserves column across long-word break", "supercalifragilistic", 3, "\x1b[B", 12),
+            ("up preserves column across long-word break", "supercalifragilistic", 11, "\x1b[A", 2),
+        ]
+        for description, initial_text, initial_cursor, ch, expected_cursor in test_cases:
+            with self.subTest(description=description):
+                tree, root, textbox = create_tree(TextBox(width=10, wrap=Wrap.WORDS))
+                textbox.text = initial_text
+                textbox.cursor_pos = initial_cursor
+                layout(tree, root)
+                textbox.handle_input(ch)
+                assert textbox.cursor_pos == expected_cursor
+
     def test_textbox_history_paging_keybindings(self) -> None:
         test_cases = [
             ("move to newer history entry (page down)", "first", 5, ["\x1b[5~", "\x0e", "\x1b[B"],
@@ -180,6 +198,17 @@ class TestTextBoxInputHandling(unittest.TestCase):
                     assert textbox.mark == expected_mark
                 if expected_kill_buf is not None:
                     assert textbox.kill_buffer == expected_kill_buf
+
+    def test_textbox_placeholder_rendering(self) -> None:
+        textbox = TextBoxController(TextBox(width=20, placeholder='Type here'))
+        text_elem = textbox.contents()[0]
+        assert isinstance(text_elem, Text)
+        assert text_elem.text == Styles.inverse('T') + Styles.dim('ype here')
+
+        textbox.text = 'a'
+        text_elem = textbox.contents()[0]
+        assert isinstance(text_elem, Text)
+        assert text_elem.text == Styles.inverse('a')
 
     def test_textbox_change_callback(self) -> None:
         handle_change = Mock()
