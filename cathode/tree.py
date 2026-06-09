@@ -112,12 +112,21 @@ def _unmount(tree: ElementTree, component: Component) -> None:
     elif isinstance(component, Element):
         component._tree = None  # noqa: SLF001
 
+# Reorder old children so keyed children line up with matching keys in the new children
+def _align_keys(old: list[Component | None], new: list[Component | None]) -> list[Component | None]:
+    keyed = {c.key: c for c in old if c is not None and c.key is not None}
+    if not keyed:
+        return old
+    rest = iter(c for c in old if c is None or c.key is None)
+    aligned = [keyed.pop(c.key, None) if c is not None and c.key is not None else next(rest, None) for c in new]
+    return aligned + list(keyed.values()) + list(rest)
+
 # Update a component's subtree
 def update(tree: ElementTree, component: Component) -> None:
-    """Reconcile `component`'s subtree against its current `contents()`, mounting and unmounting children."""
+    """Reconcile `component`'s subtree against its current `contents()`, matching children by `key` when set."""
     uuid = component.uuid
     new_contents = component.contents()
-    old_contents = tree.children[uuid]
+    old_contents = tree.children[uuid] = _align_keys(tree.children[uuid], new_contents)
 
     for i, (old_child, new_child) in enumerate(zip_longest(old_contents, new_contents, fillvalue=None)):
         if not old_child and not new_child:

@@ -30,6 +30,7 @@ def _get_spacing_dict(spacing: Spacing) -> dict[Side, int]:
 class Component:
     """Base class for everything that can appear in a cathode element tree."""
 
+    key: str | int | None = field(default=None, kw_only=True, compare=False)
     uuid: UUID = field(default_factory=uuid4, compare=False, kw_only=True)
 
     def contents(self) -> list[Component | None]:

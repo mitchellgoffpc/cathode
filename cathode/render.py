@@ -37,8 +37,7 @@ def _split_input_sequence(sequence: str) -> list[str]:
     for match in CONTROL_SEQ_RE.finditer(sequence):
         if match.start() > last:
             chunks.append(sequence[last:match.start()])
-        chunk: str = match.group(0)
-        chunks.append(SS3_TO_CSI.get(chunk, chunk))
+        chunks.append(SS3_TO_CSI.get(match.group(0), match.group(0)))
         last = match.end()
     if last < len(sequence):
         chunks.append(sequence[last:])

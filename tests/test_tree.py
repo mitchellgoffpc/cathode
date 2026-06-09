@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from cathode.components import BaseController, Box, Component, Text, Widget
+from cathode.components import BaseController, Box, Component, State, Text, Widget
 from cathode.tree import ElementTree, mount, propagate, update
 from tests.helpers import DeepTree, WideTree
 
@@ -82,6 +82,30 @@ def test_widget_mount_and_update() -> None:
     assert box3.uuid != box4.uuid
     assert tree.parents == {box4.uuid: parent.uuid}
     assert tree.children == {parent.uuid: [box4], box4.uuid: [None]}
+
+
+def test_keyed_children_keep_controllers_when_reordered() -> None:
+    @dataclass
+    class Host(Widget):
+        class Controller(BaseController):
+            values: list[int] = State([1, 2])
+
+            def contents(self) -> list[Component | None]:
+                return [ChildWidget(v, key=v) for v in self.values]
+
+    def controllers(tree: ElementTree, host: Host) -> dict:
+        return {child.value: child.controller for child in tree.children[host.uuid] if isinstance(child, ChildWidget)}
+
+    host = Host()
+    tree = ElementTree(host)
+    mount(tree, host)
+    original = controllers(tree, host)
+
+    host.controller.values = [0, 1, 2]  # ty: ignore[unresolved-attribute]
+    update(tree, host)
+    updated = controllers(tree, host)
+    assert updated[1] is original[1]
+    assert updated[2] is original[2]
 
 
 def test_handle_unmount_called_on_removal_and_replacement() -> None:
