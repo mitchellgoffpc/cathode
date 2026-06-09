@@ -28,6 +28,7 @@ class ElementTree:
         self.widths: dict[UUID, int] = {}
         self.heights: dict[UUID, int] = {}
         self.dirty: set[UUID] = set()
+        self.exiting = False
 
     def __str__(self) -> str:
         """Return the formatted tree starting at the root."""

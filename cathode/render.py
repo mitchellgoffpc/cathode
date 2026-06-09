@@ -273,15 +273,14 @@ async def _input_loop(tree: ElementTree, root: Element, draw: DrawFn, prev_lines
             sys.stdout.write(f'{ESC}2J{ESC}H')
             prev_lines.clear()
 
-        if not tree.dirty and not resized:
-            await asyncio.sleep(0.01)
-            continue
-        for uuid in sorted(tree.dirty, key=lambda uuid: depth(tree, tree.nodes[uuid])):  # top-down
-            if uuid in tree.nodes:
-                update(tree, tree.nodes[uuid])
-        tree.dirty.clear()
-
-        prev_lines[:] = draw(tree, root, prev_lines, size)
+        if tree.dirty or resized:
+            for uuid in sorted(tree.dirty, key=lambda uuid: depth(tree, tree.nodes[uuid])):  # top-down
+                if uuid in tree.nodes:
+                    update(tree, tree.nodes[uuid])
+            tree.dirty.clear()
+            prev_lines[:] = draw(tree, root, prev_lines, size)
+        if tree.exiting:
+            break
         await asyncio.sleep(0.01)
 
 

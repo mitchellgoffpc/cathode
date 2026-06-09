@@ -73,7 +73,7 @@ class FileBrowser(Widget):
                 height = self.viewport_height()
                 self.preview_scroll = max(0, min(self.preview_scroll + height, lines.count('\n') + 1 - height))
             elif ch == 'q':
-                raise KeyboardInterrupt
+                self.exit()
 
         def contents(self) -> list[Component | None]:
             entries = list_entries(self.cwd)
