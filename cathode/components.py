@@ -214,10 +214,11 @@ class BaseController(Generic[ComponentType]):
         if self.tree:
             self.tree.dirty.add(self.props.uuid)
 
-    def exit(self) -> None:
-        """Request the render loop to stop once the pending re-render has been drawn."""
+    def exit(self, result: Any = None) -> None:
+        """Request the render loop to stop once the pending re-render has been drawn. `cathode.run` returns `result`."""
         if self.tree:
             self.tree.exiting = True
+            self.tree.exit_result = result
 
     def handle_mount(self, tree: ElementTree) -> None:
         """Hook called when the widget is first mounted into `tree`."""

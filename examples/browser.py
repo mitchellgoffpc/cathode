@@ -7,7 +7,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
-from cathode import Box, Component, Styles, Text, Widget, run
+from cathode import Box, Component, Keys, Styles, Text, Widget, run
 from cathode.components import BaseController, State
 from cathode.styles import Axis, Wrap, wrap_lines
 
@@ -54,21 +54,21 @@ class FileBrowser(Widget):
 
         def handle_input(self, ch: str) -> bool:
             entries = list_entries(self.cwd)
-            if ch == '\x1b[A' and entries:  # up
+            if ch == Keys.UP and entries:
                 self.selected = max(0, self.selected - 1)
                 self.clamp_scroll(len(entries))
                 self.preview_scroll = 0
-            elif ch == '\x1b[B' and entries:  # down
+            elif ch == Keys.DOWN and entries:
                 self.selected = min(len(entries) - 1, self.selected + 1)
                 self.clamp_scroll(len(entries))
                 self.preview_scroll = 0
-            elif ch in ('\r', '\x1b[C') and entries and entries[self.selected].is_dir():  # enter / right
+            elif ch in (Keys.ENTER, Keys.RIGHT) and entries and entries[self.selected].is_dir():
                 self.cwd, self.selected, self.scroll, self.preview_scroll = entries[self.selected], 0, 0, 0
-            elif ch in ('\x7f', '\x1b[D') and self.cwd.parent != self.cwd:  # backspace / left
+            elif ch in (Keys.BACKSPACE, Keys.LEFT) and self.cwd.parent != self.cwd:
                 self.cwd, self.selected, self.scroll, self.preview_scroll = self.cwd.parent, 0, 0, 0
-            elif ch == '\x1b[5~':  # page up
+            elif ch == Keys.PAGE_UP:
                 self.preview_scroll = max(0, self.preview_scroll - self.viewport_height())
-            elif ch == '\x1b[6~' and entries and self.preview_ref.content_width:
+            elif ch == Keys.PAGE_DOWN and entries and self.preview_ref.content_width:
                 lines = wrap_lines(read_preview(entries[self.selected]), self.preview_ref.content_width, Wrap.WORDS)
                 height = self.viewport_height()
                 self.preview_scroll = max(0, min(self.preview_scroll + height, lines.count('\n') + 1 - height))

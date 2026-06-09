@@ -11,6 +11,7 @@ import tty
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from itertools import zip_longest
+from typing import Any
 
 from cathode.components import Box, Component, Element, Overlay, Side, Text
 from cathode.cursor import ESC, cursor_up, erase_end_line, erase_line, hide_cursor, paste_end, paste_start, show_cursor
@@ -18,7 +19,8 @@ from cathode.layout import layout
 from cathode.styles import Axis, BorderStyle, Color, Colors, ansi_len, ansi_slice, color_to_ansi
 from cathode.tree import ElementTree, depth, mount, propagate, update
 
-CONTROL_SEQ_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z~]?|\x1b.|[\x00-\x1f\x7f]')
+CONTROL_SEQ_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z~]?|\x1bO.|\x1b.|[\x00-\x1f\x7f]')
+SS3_TO_CSI: dict[str, str] = {f'\x1bO{c}': f'\x1b[{c}' for c in 'ABCDHF'}  # application cursor mode keys, in CSI form
 
 DrawFn = Callable[[ElementTree, Element, list[str], os.terminal_size], list[str]]
 
@@ -35,7 +37,8 @@ def _split_input_sequence(sequence: str) -> list[str]:
     for match in CONTROL_SEQ_RE.finditer(sequence):
         if match.start() > last:
             chunks.append(sequence[last:match.start()])
-        chunks.append(match.group(0))
+        chunk: str = match.group(0)
+        chunks.append(SS3_TO_CSI.get(chunk, chunk))
         last = match.end()
     if last < len(sequence):
         chunks.append(sequence[last:])
@@ -291,7 +294,7 @@ def _setup(_root: Component) -> tuple[ElementTree, Element]:
     return tree, root
 
 
-async def run(root: Component, *, fullscreen: bool = False, raw: bool = False) -> None:
+async def run(root: Component, *, fullscreen: bool = False, raw: bool = False) -> Any:
     """Run the interactive render loop, mounting `root` and dispatching input until exit.
 
     The app draws inline in the terminal's normal scrollback. Pass `fullscreen=True` to render in
@@ -300,6 +303,9 @@ async def run(root: Component, *, fullscreen: bool = False, raw: bool = False) -
     By default the terminal is set to cbreak mode, so the kernel still translates Ctrl+C into SIGINT
     and Ctrl+Z into SIGTSTP. Pass `raw=True` to receive those bytes as input instead, e.g. to
     handle them in a root component's `handle_input`.
+
+    Returns:
+        The value passed to `BaseController.exit`, or `None`.
     """
     tree, element = _setup(root)
     prev_lines: list[str] = []
@@ -309,3 +315,4 @@ async def run(root: Component, *, fullscreen: bool = False, raw: bool = False) -
         finally:
             if not fullscreen:
                 _finalize_append(prev_lines)
+    return tree.exit_result
