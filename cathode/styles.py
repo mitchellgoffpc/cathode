@@ -26,6 +26,7 @@ class Wrap(Enum):
     EXACT = 'exact'
     WORDS = 'words'
     WORDS_WITH_CURSOR = 'words_with_cursor'
+    ELLIPSIS = 'ellipsis'
 
 class WrappedLine(NamedTuple):
     """A single visual line produced by `iter_wrapped_lines`."""
@@ -513,7 +514,15 @@ def iter_wrapped_lines(content: str, max_width: int, wrap: Wrap = Wrap.EXACT) ->
             segments.append(WrappedLine(acc_text + text, acc_width + newline_pos, start, cursor.src, hard_break=True))
             cursor.skip(1)
             wrapped = False
-        elif wrap is Wrap.EXACT or ' ' not in plaintext or len(plaintext) <= budget:
+        elif wrap is Wrap.ELLIPSIS and len(plaintext) > budget:
+            col_before = cursor.visual_col
+            text = cursor.consume(max(budget - 1, 0))
+            nl = cursor.content.find('\n', cursor.src)
+            cursor.skip(ansi_len(cursor.content[cursor.src:nl if nl >= 0 else len(cursor.content)]))
+            width_used = acc_width + cursor.visual_col - col_before + 1
+            segments.append(WrappedLine(acc_text + text + '…', width_used, start, cursor.src, hard_break=False))
+            wrapped = True
+        elif wrap in (Wrap.EXACT, Wrap.ELLIPSIS) or ' ' not in plaintext or len(plaintext) <= budget:
             col_before = cursor.visual_col
             text = cursor.consume(budget)
             segments.append(WrappedLine(

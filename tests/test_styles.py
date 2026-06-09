@@ -121,6 +121,17 @@ def test_wrap_words(input_text: str, expected: str, width: int) -> None:
     assert wrap_lines(input_text, width, wrap=Wrap.WORDS) == expected
 
 
+@pytest.mark.parametrize(("input_text", "expected", "width"), [
+    pytest.param("hello", "hello", 10, id="ellipsis fits"),
+    pytest.param("hello world", "hell…", 5, id="ellipsis truncate"),
+    pytest.param("hello world\nfoo", "hell…\nfoo", 5, id="ellipsis preserves newlines"),
+    pytest.param("foo\nlong line here", "foo\nlong…", 5, id="ellipsis truncates later line"),
+    pytest.param("abcdef", "…", 1, id="ellipsis width 1"),
+])
+def test_wrap_ellipsis(input_text: str, expected: str, width: int) -> None:
+    assert wrap_lines(input_text, width, wrap=Wrap.ELLIPSIS) == expected
+
+
 @pytest.mark.parametrize(("text", "width", "wrap", "expected"), [
     pytest.param("hello world foo", 10, Wrap.WORDS, [(0, 5), (6, 15)], id="words soft wrap at space"),
     pytest.param("supercalifragilistic", 8, Wrap.WORDS, [(0, 8), (8, 16), (16, 20)], id="words long word break"),
