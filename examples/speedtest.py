@@ -9,7 +9,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 
-from cathode import Box, Component, Overlay, Text, Widget, render_root
+from cathode import Box, Component, Overlay, Text, Widget, run
 from cathode.components import BaseController, State
 from cathode.styles import Colors, Styles
 from cathode.tree import ElementTree
@@ -141,7 +141,7 @@ class SpeedTest(Widget):
 
 
 async def main() -> None:
-    await render_root(SpeedTest())
+    await run(SpeedTest())
 
 if __name__ == '__main__':
     with suppress(KeyboardInterrupt):

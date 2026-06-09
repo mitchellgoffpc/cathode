@@ -1,6 +1,6 @@
 """cathode is a Python terminal UI library for building interactive CLI tools."""
 from cathode.components import BaseController, Box, Component, Element, Overlay, State, Text, Widget
-from cathode.render import render_root, render_root_alt
+from cathode.render import run
 from cathode.styles import Axis, Borders, Colors, Styles, ansi_len, ansi_slice, wrap_lines
 from cathode.termcolor import terminal_bg_color, terminal_fg_color
 from cathode.textbox import TextBox
@@ -25,5 +25,5 @@ __all__ = [
     'Overlay', 'Widget', 'BaseController', 'State', 'TextBox',
     'Axis', 'Borders', 'Colors', 'Styles', 'ansi_len', 'ansi_slice', 'wrap_lines',
     'terminal_bg_color', 'terminal_fg_color',
-    'render_root', 'render_root_alt',
+    'run',
 ]

@@ -14,7 +14,7 @@ Elements are composed with `box[child, ...]`. Stateful behavior lives in a `Widg
 
 ```python
 import asyncio
-from cathode import Box, BaseController, State, Text, Widget, render_root
+from cathode import Box, BaseController, State, Text, Widget, run
 
 class Counter(Widget):
     class Controller(BaseController):
@@ -32,10 +32,10 @@ class Counter(Widget):
                 Text(text='space: increment   q: quit'),
             ]
 
-asyncio.run(render_root(Box()[Counter()]))
+asyncio.run(run(Box()[Counter()]))
 ```
 
-`render_root` draws into the normal terminal scrollback; use `render_root_alt` for a full-screen app in the terminal's alternate screen buffer.
+`run` draws into the normal terminal scrollback; pass `fullscreen=True` for a full-screen app in the terminal's alternate screen buffer.
 
 ## Learn more
 

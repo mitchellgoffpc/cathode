@@ -291,28 +291,21 @@ def _setup(_root: Component) -> tuple[ElementTree, Element]:
     return tree, root
 
 
-async def render_root(_root: Component, *, raw: bool = False) -> None:
-    """Run the interactive render loop, mounting `_root` and dispatching input until exit.
+async def run(root: Component, *, fullscreen: bool = False, raw: bool = False) -> None:
+    """Run the interactive render loop, mounting `root` and dispatching input until exit.
+
+    The app draws inline in the terminal's normal scrollback. Pass `fullscreen=True` to render in
+    the alternate screen buffer instead.
 
     By default the terminal is set to cbreak mode, so the kernel still translates Ctrl+C into SIGINT
     and Ctrl+Z into SIGTSTP. Pass `raw=True` to receive those bytes as input instead, e.g. to
     handle them in a root component's `handle_input`.
     """
-    tree, root = _setup(_root)
+    tree, element = _setup(root)
     prev_lines: list[str] = []
-    with _terminal_session(alt_screen=False, raw=raw):
+    with _terminal_session(alt_screen=fullscreen, raw=raw):
         try:
-            await _input_loop(tree, root, _draw_append, prev_lines)
+            await _input_loop(tree, element, _draw_full if fullscreen else _draw_append, prev_lines)
         finally:
-            _finalize_append(prev_lines)
-
-async def render_root_alt(_root: Component, *, raw: bool = False) -> None:
-    """Run the interactive render loop in the terminal's alternate screen buffer.
-
-    By default the terminal is set to cbreak mode, so the kernel still translates Ctrl+C into SIGINT
-    and Ctrl+Z into SIGTSTP. Pass `raw=True` to receive those bytes as input instead, e.g. to
-    handle them in a root component's `handle_input`.
-    """
-    tree, root = _setup(_root)
-    with _terminal_session(alt_screen=True, raw=raw):
-        await _input_loop(tree, root, _draw_full, [])
+            if not fullscreen:
+                _finalize_append(prev_lines)

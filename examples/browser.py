@@ -7,7 +7,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
-from cathode import Box, Component, Styles, Text, Widget, render_root_alt
+from cathode import Box, Component, Styles, Text, Widget, run
 from cathode.components import BaseController, State
 from cathode.styles import Axis, Wrap, wrap_lines
 
@@ -105,7 +105,7 @@ class FileBrowser(Widget):
 
 
 async def main() -> None:
-    await render_root_alt(FileBrowser())
+    await run(FileBrowser(), fullscreen=True)
 
 if __name__ == '__main__':
     with suppress(KeyboardInterrupt):

@@ -7,7 +7,7 @@ import re
 from contextlib import suppress
 from dataclasses import dataclass
 
-from cathode import Box, Component, Text, TextBox, Widget, render_root
+from cathode import Box, Component, Text, TextBox, Widget, run
 from cathode.components import BaseController, State
 from cathode.styles import Color
 
@@ -98,7 +98,7 @@ class Chat(Widget):
 
 async def main() -> None:
     intro = Text(text='ELIZA is listening.', text_color=BOT_COLOR)
-    await render_root(Box()[intro, Chat()])
+    await run(Box()[intro, Chat()])
 
 if __name__ == '__main__':
     with suppress(KeyboardInterrupt):
