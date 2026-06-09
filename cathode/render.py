@@ -112,15 +112,27 @@ def _apply_chrome(rows: list[str], content_width: int, element: Element) -> list
 def _fit_height(rows: list[str], width: int, height: int) -> list[str]:
     return rows[:height] + [' ' * width for _ in range(max(0, height - len(rows)))]
 
+def _tile(pattern: str, width: int) -> str:
+    if width <= 0 or not (length := ansi_len(pattern)):
+        return ' ' * max(0, width)
+    return ansi_slice(pattern * (width // length + 1), 0, width)
+
 def _render(tree: ElementTree, element: Element) -> list[str]:
     content_width = tree.widths[element.uuid] - element.chrome(Axis.HORIZONTAL)
     content_height = tree.heights[element.uuid] - element.chrome(Axis.VERTICAL)
 
     match element:
         case Text():
-            wrapped = element.wrapped(content_width)
-            rows = [line + ' ' * (content_width - ansi_len(line)) for line in wrapped.split('\n')]
-            rows = _fit_height(rows, content_width, content_height)
+            if Axis.HORIZONTAL in element.tiles:
+                lines = element.text.split('\n')
+                rows = [Colors.apply(_tile(line, content_width), element.text_color) for line in lines]
+            else:
+                wrapped = element.wrapped(content_width)
+                rows = [line + ' ' * (content_width - ansi_len(line)) for line in wrapped.split('\n')]
+            if Axis.VERTICAL in element.tiles:
+                rows = [rows[i % len(rows)] for i in range(content_height)]
+            else:
+                rows = _fit_height(rows, content_width, content_height)
         case Box():
             children = tree.collapsed_children[element.uuid]
             child_rows = [_render(tree, child) for child in children]

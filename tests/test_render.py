@@ -102,6 +102,21 @@ def test_border(text_content: str, border: tuple[Side, ...], margin: int, expect
     assert render_once(text) == expected
 
 
+@pytest.mark.parametrize(("text", "tile", "width", "height", "expected"), [
+    pytest.param('-', Axis.HORIZONTAL, 5, 1, "-----", id="horizontal fills width"),
+    pytest.param('ab', Axis.HORIZONTAL, 5, 1, "ababa", id="horizontal partial repeat"),
+    pytest.param('|', Axis.VERTICAL, 1, 3, "|\n|\n|", id="vertical fills height"),
+    pytest.param('xy', (Axis.HORIZONTAL, Axis.VERTICAL), 3, 2, "xyx\nxyx", id="both axes fill rectangle"),
+    pytest.param('hello world', Axis.VERTICAL, 5, 4, "hello\nworld\nhello\nworld", id="wrap then tile vertically"),
+])
+def test_tile(text: str, tile: Axis | tuple, width: int, height: int, expected: str) -> None:
+    assert render_once(Text(text, tile=tile, width=width, height=height)) == expected
+
+def test_tile_applies_text_color() -> None:
+    text = Text('-', tile=Axis.HORIZONTAL, width=3, text_color=Colors.RED)
+    assert render_once(text) == f"{Colors.RED}---{Colors.END}"
+
+
 @pytest.mark.parametrize("widget", [WideTree, DeepTree], ids=lambda w: w.__name__)
 def test_render_performance(widget: type) -> None:
     root = Box()[widget()]

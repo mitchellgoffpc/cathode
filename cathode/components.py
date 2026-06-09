@@ -94,16 +94,18 @@ class Element(Component):
 
 @dataclass
 class Text(Element):
-    """Leaf element that renders a string with optional wrapping."""
+    """Leaf element that renders a string, wrapping to fit or tiling to fill along the given `tile` axes."""
 
     text: str
     wrap: Wrap = field(default=Wrap.WORDS, kw_only=True)
     text_color: Color | None = field(default=None, kw_only=True)
+    tile: Axis | Iterable[Axis] | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
-        """Initialize the element and the per-width wrap cache."""
+        """Initialize the element, the per-width wrap cache, and the normalized tiling axes."""
         super().__post_init__()
         self._wrap_cache: dict[int, str] = {}
+        self.tiles = frozenset({self.tile} if isinstance(self.tile, Axis) else self.tile or ())
 
     def __getitem__(self, args: Component | Iterable[Component | None] | None) -> Self:
         """Disallow assigning children to a leaf `Text` element."""
