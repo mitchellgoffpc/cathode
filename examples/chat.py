@@ -50,7 +50,6 @@ def eliza_reply(text: str) -> str:
             return template.format(*[reflect(g) for g in match.groups()])
     return "Tell me more."
 
-
 def bubble(sender: str, text: str, color: Color) -> Component:
     label = Text(text=sender, text_color=color, padding={'left': 1, 'right': 1})
     body = Text(text=text, padding={'left': 1, 'right': 1})

@@ -48,6 +48,7 @@ class Element(Component):
     border_color: Color | None = field(default=None, kw_only=True)
     background_color: Color | None = field(default=None, kw_only=True)
     visible: bool = field(default=True, kw_only=True)
+    _tree: ElementTree | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Normalize spacing fields and initialize the children list."""
@@ -55,6 +56,20 @@ class Element(Component):
         self.paddings = _get_spacing_dict(self.padding)
         self.borders = {side: int(side in self.border) for side in get_args(Side)}
         self.children: list[Component | None] = []
+
+    @property
+    def content_width(self) -> int | None:
+        """Return the rendered width minus horizontal chrome, or `None` if not yet laid out."""
+        if self._tree is None or self.uuid not in self._tree.widths:
+            return None
+        return max(0, self._tree.widths[self.uuid] - self.chrome(Axis.HORIZONTAL))
+
+    @property
+    def content_height(self) -> int | None:
+        """Return the rendered height minus vertical chrome, or `None` if not yet laid out."""
+        if self._tree is None or self.uuid not in self._tree.heights:
+            return None
+        return max(0, self._tree.heights[self.uuid] - self.chrome(Axis.VERTICAL))
 
     def __getitem__(self, args: Component | Iterable[Component | None] | None) -> Self:
         """Assign `args` as the element's children using the `element[child, ...]` syntax."""

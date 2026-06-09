@@ -82,6 +82,8 @@ def mount(tree: ElementTree, component: Component) -> None:
     if isinstance(component, Widget):
         component.controller = component.Controller(component)
         component.controller.handle_mount(tree)
+    elif isinstance(component, Element):
+        component._tree = tree  # noqa: SLF001
     tree.nodes[component.uuid] = component
     contents = component.contents()
     tree.children[component.uuid] = contents
@@ -103,6 +105,8 @@ def _unmount(tree: ElementTree, component: Component) -> None:
     if isinstance(component, Widget):
         component.controller.handle_unmount()
         component.controller = None
+    elif isinstance(component, Element):
+        component._tree = None  # noqa: SLF001
 
 # Update a component's subtree
 def update(tree: ElementTree, component: Component) -> None:
@@ -140,6 +144,8 @@ def update(tree: ElementTree, component: Component) -> None:
                     continue
                 new_child.controller = old_child.controller
                 new_child.controller.handle_update(new_child)
+            elif isinstance(new_child, Element):
+                new_child._tree = tree  # noqa: SLF001
             assert tree.parents[old_child.uuid] == uuid
             del tree.nodes[old_child.uuid]
             tree.nodes[new_child.uuid] = new_child

@@ -6,7 +6,7 @@ from functools import partial
 
 from cathode.components import BaseController, Component, Length, State, Text, Widget
 from cathode.cursor import paste_end, paste_start
-from cathode.styles import Axis, Color, Colors, Styles, Wrap, iter_wrapped_lines
+from cathode.styles import Color, Colors, Styles, Wrap, iter_wrapped_lines
 
 REMOVE_CONTROL_CHARS = dict.fromkeys(range(32)) | {0xa: 0xa, 0xd: 0xa}
 
@@ -51,9 +51,7 @@ class TextBoxController(BaseController[TextBox]):
     @property
     def content_width(self) -> int:
         """Return the inner width available for text, after subtracting padding and borders."""
-        if self.tree and self.text_ref.uuid in self.tree.widths:
-            return max(0, self.tree.widths[self.text_ref.uuid] - self.text_ref.chrome(Axis.HORIZONTAL))
-        return 0
+        return self.text_ref.content_width or 0
 
     @property
     def text(self) -> str:

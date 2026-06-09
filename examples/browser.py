@@ -9,7 +9,7 @@ from pathlib import Path
 
 from cathode import Box, Component, Styles, Text, Widget, render_root_alt
 from cathode.components import BaseController, State
-from cathode.styles import Axis
+from cathode.styles import Axis, Wrap, wrap_lines
 
 PREVIEW_MAX_LINES = 200
 ACCENT = '#5fafff'
@@ -39,6 +39,7 @@ class FileBrowser(Widget):
         cwd: Path = State(Path.cwd().resolve())
         selected: int = State(0)
         scroll: int = State(0)
+        preview_scroll: int = State(0)
 
         def viewport_height(self) -> int:
             return max(1, shutil.get_terminal_size().lines - 2)  # subtract header + footer
@@ -56,13 +57,21 @@ class FileBrowser(Widget):
             if ch == '\x1b[A' and entries:  # up
                 self.selected = max(0, self.selected - 1)
                 self.clamp_scroll(len(entries))
+                self.preview_scroll = 0
             elif ch == '\x1b[B' and entries:  # down
                 self.selected = min(len(entries) - 1, self.selected + 1)
                 self.clamp_scroll(len(entries))
+                self.preview_scroll = 0
             elif ch in ('\r', '\x1b[C') and entries and entries[self.selected].is_dir():  # enter / right
-                self.cwd, self.selected, self.scroll = entries[self.selected], 0, 0
+                self.cwd, self.selected, self.scroll, self.preview_scroll = entries[self.selected], 0, 0, 0
             elif ch in ('\x7f', '\x1b[D') and self.cwd.parent != self.cwd:  # backspace / left
-                self.cwd, self.selected, self.scroll = self.cwd.parent, 0, 0
+                self.cwd, self.selected, self.scroll, self.preview_scroll = self.cwd.parent, 0, 0, 0
+            elif ch == '\x1b[5~':  # page up
+                self.preview_scroll = max(0, self.preview_scroll - self.viewport_height())
+            elif ch == '\x1b[6~' and entries and self.preview_ref.content_width:
+                lines = wrap_lines(read_preview(entries[self.selected]), self.preview_ref.content_width, Wrap.WORDS)
+                height = self.viewport_height()
+                self.preview_scroll = max(0, min(self.preview_scroll + height, lines.count('\n') + 1 - height))
             elif ch == 'q':
                 raise KeyboardInterrupt
 
@@ -75,15 +84,22 @@ class FileBrowser(Widget):
                 name = p.name + ('/' if p.is_dir() else '')
                 list_lines.append(Styles.inverse(name) if i == self.selected else name)
             list_text = '\n'.join(list_lines) if list_lines else Styles.dim('(empty)')
-            preview = read_preview(entries[self.selected]) if entries else ''
+            preview_text = read_preview(entries[self.selected]) if entries else ''
+            width = self.preview_ref.content_width if hasattr(self, 'preview_ref') else None
+            if width:
+                lines = wrap_lines(preview_text, width, Wrap.WORDS).split('\n')
+                height = self.viewport_height()
+                scroll = max(0, min(self.preview_scroll, max(0, len(lines) - height)))
+                preview_text = '\n'.join(lines[scroll:scroll + height])
 
             header = Text(text=' ' + str(self.cwd), width=1.0, background_color=HEADER_BG)
-            footer = Text(text=Styles.dim(' arrows: navigate   enter/right: open   backspace/left: parent   q: quit'))
-            left = Box(width=0.4, border=['right'], border_color=ACCENT, padding={'left': 1, 'right': 1})[
+            footer = Text(text=Styles.dim(' arrows: navigate   pgup/pgdn: scroll   enter: open   backspace: parent'))
+            left = Box(width=0.4, height=1.0, border=['right'], border_color=ACCENT, padding={'left': 1, 'right': 1})[
                 Text(text=list_text),
             ]
-            right = Box(width=0.6, padding={'left': 1, 'right': 1})[Text(text=preview)]
-            body = Box(flex=Axis.HORIZONTAL)[left, right]
+            self.preview_ref = Text(text=preview_text, width=1.0)
+            right = Box(width=0.6, height=1.0, padding={'left': 1, 'right': 1})[self.preview_ref]
+            body = Box(flex=Axis.HORIZONTAL, height=1.0)[left, right]
             return [header, body, footer]
 
 
