@@ -12,10 +12,10 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from itertools import zip_longest
 
-from cathode.components import Box, Component, Element, Side, Text
+from cathode.components import Box, Component, Element, Overlay, Side, Text
 from cathode.cursor import ESC, cursor_up, erase_end_line, erase_line, hide_cursor, paste_end, paste_start, show_cursor
 from cathode.layout import layout
-from cathode.styles import Axis, BorderStyle, Color, Colors, ansi_len, color_to_ansi
+from cathode.styles import Axis, BorderStyle, Color, Colors, ansi_len, ansi_slice, color_to_ansi
 from cathode.tree import ElementTree, depth, mount, propogate, update
 
 CONTROL_SEQ_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z~]?|\x1b.|[\x00-\x1f\x7f]')
@@ -140,7 +140,17 @@ def _render(tree: ElementTree, element: Element) -> list[str]:
         case _:
             raise ValueError(f"Unknown element type: {type(element)}")
 
+    for overlay in tree.overlays[element.uuid]:
+        _composite(tree, rows, content_width, overlay)
     return _apply_chrome(rows, content_width, element)
+
+def _composite(tree: ElementTree, rows: list[str], width: int, overlay: Overlay) -> None:
+    x, y = tree.offsets[overlay.uuid]
+    for i, overlay_row in enumerate(_render(tree, overlay)):
+        if 0 <= y + i < len(rows):
+            overlay_width = ansi_len(overlay_row)
+            background = rows[y + i]
+            rows[y + i] = ansi_slice(background, 0, x) + overlay_row + ansi_slice(background, x + overlay_width, width)
 
 def render(tree: ElementTree, element: Element) -> str:
     """Return the fully rendered string for `element` based on cached layout in `tree`."""

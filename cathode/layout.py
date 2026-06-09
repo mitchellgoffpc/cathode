@@ -1,7 +1,7 @@
 """Layout algorithms that compute element sizes and offsets for a cathode element tree."""
 from itertools import chain
 
-from cathode.components import Box, Component, Element, Text, Widget
+from cathode.components import Box, Component, Element, Length, Overlay, Text, Widget
 from cathode.styles import Axis, ansi_len
 from cathode.tree import ElementTree, Offset
 
@@ -14,11 +14,13 @@ def layout(
     _compute_lengths(tree, element, Axis.HORIZONTAL, available_width)
     _compute_lengths(tree, element, Axis.VERTICAL, available_height)
     _compute_offsets(tree, element)
+    _layout_overlays(tree, element)
 
 def _collapse_tree(tree: ElementTree, element: Element) -> None:
-    tree.collapsed_children[element.uuid] = list(chain.from_iterable(
-        _collapse_children(tree, child) for child in tree.children[element.uuid]))
-    for child in tree.collapsed_children[element.uuid]:
+    collapsed = list(chain.from_iterable(_collapse_children(tree, child) for child in tree.children[element.uuid]))
+    tree.collapsed_children[element.uuid] = [child for child in collapsed if not isinstance(child, Overlay)]
+    tree.overlays[element.uuid] = [child for child in collapsed if isinstance(child, Overlay)]
+    for child in collapsed:
         _collapse_tree(tree, child)
 
 def _collapse_children(tree: ElementTree, component: Component | None) -> list[Element]:
@@ -101,3 +103,47 @@ def _compute_offsets(tree: ElementTree, element: Element) -> None:
         else:
             y_offset += tree.heights[child.uuid]
         _compute_offsets(tree, child)
+
+def _layout_overlays(tree: ElementTree, element: Element) -> None:
+    content_width = max(0, tree.widths[element.uuid] - element.chrome(Axis.HORIZONTAL))
+    content_height = max(0, tree.heights[element.uuid] - element.chrome(Axis.VERTICAL))
+    for overlay in tree.overlays[element.uuid]:
+        _layout_overlay(tree, overlay, content_width, content_height)
+        _layout_overlays(tree, overlay)
+    for child in tree.collapsed_children[element.uuid]:
+        _layout_overlays(tree, child)
+
+def _layout_overlay(tree: ElementTree, overlay: Overlay, content_width: int, content_height: int) -> None:
+    _compute_lengths(tree, overlay, Axis.HORIZONTAL, content_width)
+    _compute_lengths(tree, overlay, Axis.VERTICAL, content_height)
+    natural_width, natural_height = tree.widths[overlay.uuid], tree.heights[overlay.uuid]
+    x, width = _resolve_inset(content_width, overlay.width, overlay.left, overlay.right, natural_width)
+    y, height = _resolve_inset(content_height, overlay.height, overlay.top, overlay.bottom, natural_height)
+    if (width, height) != (natural_width, natural_height):
+        _compute_lengths(tree, overlay, Axis.HORIZONTAL, width)
+        _compute_lengths(tree, overlay, Axis.VERTICAL, height)
+        tree.widths[overlay.uuid], tree.heights[overlay.uuid] = width, height
+    _compute_offsets(tree, overlay)
+    tree.offsets[overlay.uuid] = Offset(x, y)
+
+def _resolve_inset(parent: int, size: Length, start: Length, end: Length, content: int) -> tuple[int, int]:
+    if size is None and isinstance(start, int) and isinstance(end, int):
+        length = parent - start - end  # no explicit size but both edges are pinned, so span between them
+    elif isinstance(size, float):
+        length = int(size * parent)
+    elif isinstance(size, int):
+        length = size
+    else:
+        length = content
+    length = max(0, min(length, parent))
+    remaining = parent - length
+    if isinstance(start, int):
+        offset = start
+    elif isinstance(end, int):
+        offset = remaining - end
+    elif isinstance(start, float) or isinstance(end, float):
+        start_weight, end_weight = start or 0.0, end or 0.0
+        offset = int(remaining * start_weight / (start_weight + end_weight)) if start_weight + end_weight else 0
+    else:
+        offset = 0
+    return max(0, min(offset, remaining)), length

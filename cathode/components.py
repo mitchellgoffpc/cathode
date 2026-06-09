@@ -123,6 +123,21 @@ class Box(Element):
     flex: Axis = Axis.VERTICAL
 
 @dataclass
+class Overlay(Box):
+    """Floating box composited over its parent, positioned by edge insets and ignored by parent layout.
+
+    Each inset (`top`, `right`, `bottom`, `left`) is given in cells (`int`) or as a fraction of the
+    free space along that axis (`float`). Two fixed insets stretch the overlay between them, while
+    fractional insets split the leftover space by weight, so `top=1.0, bottom=1.0` centers vertically.
+    Overlays never contribute to their parent's size and are always clipped to its content box.
+    """
+
+    top: Length = field(default=None, kw_only=True)
+    right: Length = field(default=None, kw_only=True)
+    bottom: Length = field(default=None, kw_only=True)
+    left: Length = field(default=None, kw_only=True)
+
+@dataclass
 class Widget(Component):
     """Stateful component whose contents and behavior are driven by an associated controller."""
 
