@@ -84,10 +84,10 @@ class TextBoxController(BaseController[TextBox]):
             self.history_idx = len(self.history) - 1
         super().handle_update(new_props)
 
-    def handle_input(self, ch: str) -> None:
+    def handle_input(self, ch: str) -> bool:
         """Apply an input character or escape sequence `ch` to the buffer and cursor state."""
         if self.props.handle_input and not self.props.handle_input(ch, self.cursor_pos):
-            return
+            return True
 
         text = self.text
         cursor_pos = self.cursor_pos
@@ -159,7 +159,7 @@ class TextBoxController(BaseController[TextBox]):
                 self._cursor_pos = cursor_pos
                 if text != self.text:
                     self.text = text
-                return
+                return True
         elif ch == '\x00':  # Ctrl+Space - set mark
             self.mark = cursor_pos
         elif ch.startswith('\x1b'):  # Escape sequence
@@ -176,6 +176,7 @@ class TextBoxController(BaseController[TextBox]):
         self.history_idx = history_idx
         if text != self.text:
             self.text = text
+        return True
 
     def handle_escape_input(self, ch: str) -> tuple[str, int, int]:
         """Handle the body of an escape sequence and return the resulting text, cursor, and history index."""

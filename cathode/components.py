@@ -231,8 +231,13 @@ class BaseController(Generic[ComponentType]):
         """Hook called when the widget's props change."""
         self.props = new_props
 
-    def handle_input(self, ch: str) -> None:
-        """Hook called for each input sequence delivered to the widget."""
+    def handle_input(self, ch: str) -> bool:
+        """Hook called for each input sequence delivered to the widget.
+
+        Return `False` to consume the sequence and stop it from propagating to descendant widgets;
+        any other value (including the default) lets it continue down the tree.
+        """
+        return True
 
     def contents(self) -> list[Component | None]:
         """Return the children rendered by this controller."""

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import pytest
 
 from cathode.components import BaseController, Box, Component, Text, Widget
-from cathode.tree import ElementTree, mount, update
+from cathode.tree import ElementTree, mount, propagate, update
 from tests.helpers import DeepTree, WideTree
 
 
@@ -121,6 +121,30 @@ def test_handle_unmount_called_on_removal_and_replacement() -> None:
     host.controller.child = None  # ty: ignore[unresolved-attribute]
     update(tree, host)
     assert unmounted == [1, 2]
+
+
+@pytest.mark.parametrize(("keep_going", "expected"), [(True, [1, 2]), (False, [1])])
+def test_handle_input_return_controls_propagation(keep_going: bool, expected: list[int]) -> None:
+    seen: list[int] = []
+
+    @dataclass
+    class Listener(Widget):
+        tag: int
+        keep_going: bool = True
+
+        class Controller(BaseController):
+            def handle_input(self, ch: str) -> bool:
+                seen.append(self.props.tag)
+                return self.props.keep_going
+
+            def contents(self) -> list[Component | None]:
+                return [Listener(tag=2)] if self.props.tag == 1 else [Text("leaf")]
+
+    root = Listener(tag=1, keep_going=keep_going)
+    tree = ElementTree(root)
+    mount(tree, root)
+    propagate(tree, root, 'x', 'input')
+    assert seen == expected
 
 
 @pytest.mark.parametrize("widget", [WideTree, DeepTree], ids=lambda w: w.__name__)

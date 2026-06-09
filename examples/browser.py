@@ -52,7 +52,7 @@ class FileBrowser(Widget):
                 self.scroll = self.selected - height + 1
             self.scroll = max(0, min(self.scroll, max(0, count - height)))
 
-        def handle_input(self, ch: str) -> None:
+        def handle_input(self, ch: str) -> bool:
             entries = list_entries(self.cwd)
             if ch == '\x1b[A' and entries:  # up
                 self.selected = max(0, self.selected - 1)
@@ -74,6 +74,7 @@ class FileBrowser(Widget):
                 self.preview_scroll = max(0, min(self.preview_scroll + height, lines.count('\n') + 1 - height))
             elif ch == 'q':
                 self.exit()
+            return True
 
         def contents(self) -> list[Component | None]:
             entries = list_entries(self.cwd)
