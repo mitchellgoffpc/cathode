@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar, get_args
 from uuid import UUID, uuid4
@@ -171,7 +172,9 @@ class _StateField(Generic[T]):
     def __get__(self, instance: Any, owner: type | None = None) -> T:
         if instance is None:
             return self  # ty: ignore[invalid-return-type]
-        return getattr(instance, self.attr, self.default)
+        if hasattr(instance, self.attr):
+            return getattr(instance, self.attr)
+        return deepcopy(self.default)  # copy so mutable defaults are never shared across instances
 
     def __set__(self, instance: Any, value: T) -> None:
         setattr(instance, self.attr, value)

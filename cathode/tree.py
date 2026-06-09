@@ -69,14 +69,14 @@ def depth(tree: ElementTree, node: Component) -> int:
         depth += 1
     return depth
 
-# Propogate input to a component and its subtree
-def propogate(tree: ElementTree, node: Component, value: Any, event_type: str) -> None:
+# Propagate input to a component and its subtree
+def propagate(tree: ElementTree, node: Component, value: Any, event_type: str) -> None:
     """Dispatch a `handle_<event_type>` event with `value` to `node` and every widget below it."""
     if isinstance(node, Widget):
         getattr(node.controller, f'handle_{event_type}')(value)
     for child in tree.children.get(node.uuid, []):
         if child:
-            propogate(tree, child, value, event_type)
+            propagate(tree, child, value, event_type)
 
 # Add a component and all its children to the tree
 def mount(tree: ElementTree, component: Component) -> None:

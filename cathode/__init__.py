@@ -21,7 +21,8 @@ class UI:
     TextBox = TextBox
 
 __all__ = [
-    'UI', 'ElementTree', 'Component', 'Element', 'Text', 'Box', 'Overlay', 'Widget', 'Controller', 'State', 'TextBox',
+    'UI', 'ElementTree', 'Component', 'Element', 'Text', 'Box',
+    'Overlay', 'Widget', 'BaseController', 'State', 'TextBox',
     'Axis', 'Borders', 'Colors', 'Styles', 'ansi_len', 'ansi_slice', 'wrap_lines',
     'terminal_bg_color', 'terminal_fg_color',
     'render_root', 'render_root_alt',

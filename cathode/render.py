@@ -16,7 +16,7 @@ from cathode.components import Box, Component, Element, Overlay, Side, Text
 from cathode.cursor import ESC, cursor_up, erase_end_line, erase_line, hide_cursor, paste_end, paste_start, show_cursor
 from cathode.layout import layout
 from cathode.styles import Axis, BorderStyle, Color, Colors, ansi_len, ansi_slice, color_to_ansi
-from cathode.tree import ElementTree, depth, mount, propogate, update
+from cathode.tree import ElementTree, depth, mount, propagate, update
 
 CONTROL_SEQ_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z~]?|\x1b.|[\x00-\x1f\x7f]')
 
@@ -264,7 +264,7 @@ async def _input_loop(tree: ElementTree, root: Element, draw: DrawFn, prev_lines
                 while (ch := sys.stdin.read(1)):
                     sequence += ch
             for chunk in _split_input_sequence(sequence):
-                propogate(tree, root, chunk, 'input')
+                propagate(tree, root, chunk, 'input')
 
         new_size = shutil.get_terminal_size()
         resized = new_size != size
