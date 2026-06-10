@@ -173,9 +173,9 @@ class _StateField(Generic[T]):
     def __get__(self, instance: Any, owner: type | None = None) -> T:
         if instance is None:
             return self  # ty: ignore[invalid-return-type]
-        if hasattr(instance, self.attr):
-            return getattr(instance, self.attr)
-        return deepcopy(self.default)  # copy so mutable defaults are never shared across instances
+        if not hasattr(instance, self.attr):
+            setattr(instance, self.attr, deepcopy(self.default))  # copy so mutable defaults are never shared
+        return getattr(instance, self.attr)
 
     def __set__(self, instance: Any, value: T) -> None:
         setattr(instance, self.attr, value)
