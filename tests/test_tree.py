@@ -147,28 +147,57 @@ def test_handle_unmount_called_on_removal_and_replacement() -> None:
     assert unmounted == [1, 2]
 
 
-@pytest.mark.parametrize(("keep_going", "expected"), [(True, [1, 2]), (False, [1])])
-def test_handle_input_return_controls_propagation(keep_going: bool, expected: list[int]) -> None:
+@pytest.mark.parametrize(("consume", "expected"), [(True, [1]), (False, [1, 2])])
+def test_handle_input_return_controls_propagation(consume: bool, expected: list[int]) -> None:
     seen: list[int] = []
 
     @dataclass
     class Listener(Widget):
         tag: int
-        keep_going: bool = True
+        consume: bool = False
 
         class Controller(BaseController):
             def handle_input(self, ch: str) -> bool:
                 seen.append(self.props.tag)
-                return self.props.keep_going
+                return self.props.consume
 
             def contents(self) -> list[Component | None]:
                 return [Listener(tag=2)] if self.props.tag == 1 else [Text("leaf")]
 
-    root = Listener(tag=1, keep_going=keep_going)
+    root = Listener(tag=1, consume=consume)
     tree = ElementTree(root)
     mount(tree, root)
     propagate(tree, root, 'x', 'input')
     assert seen == expected
+
+
+def test_focus_routes_input_along_focus_path() -> None:
+    seen: list[BaseController] = []
+
+    class Listener(Widget):
+        class Controller(BaseController):
+            def handle_input(self, ch: str) -> bool:
+                seen.append(self)
+                return False
+
+            def contents(self) -> list[Component | None]:
+                return []
+
+    class Input(Listener):
+        class Controller(Listener.Controller):
+            focusable = True
+
+    a, b, c = Input(), Input(), Listener()
+    tree = ElementTree(root := Box()[a, b, c])
+    mount(tree, root)
+    assert tree.focus is a.controller  # first focusable widget mounted claims focus
+
+    propagate(tree, root, 'x', 'input')
+    assert seen == [a.controller]  # focused widget receives input; focusable and plain siblings are muted
+
+    b.controller.focus()
+    propagate(tree, root, 'x', 'input')
+    assert seen == [a.controller, b.controller]
 
 
 @pytest.mark.parametrize("widget", [WideTree, DeepTree], ids=lambda w: w.__name__)

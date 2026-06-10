@@ -188,9 +188,14 @@ def State(default: T) -> T:
 
 
 class BaseController(Generic[ComponentType]):
-    """Base class for widget controllers; subclasses declare state via `State` and produce child components."""
+    """Base class for widget controllers; subclasses declare state via `State` and produce child components.
+
+    Set `focusable = True` to make the widget participate in focus: it then receives input only while
+    focused, and other widgets off the focus path are muted while it holds focus.
+    """
 
     tree: ElementTree | None = None
+    focusable: bool = False
 
     def __init_subclass__(cls: type[BaseController[ComponentType]], *args: Any, **kwargs: Any) -> None:
         """Auto-register this controller on the parameterized `Widget` subclass when subclassed."""
@@ -210,6 +215,25 @@ class BaseController(Generic[ComponentType]):
         """Return whether this controller is currently mounted into an element tree."""
         return self.tree is not None
 
+    @property
+    def focused(self) -> bool:
+        """Return whether this controller currently holds input focus."""
+        return self.tree is not None and self.tree.focus is self
+
+    def focus(self) -> None:
+        """Claim input focus for this controller's widget."""
+        if self.tree and self.tree.focus is not self:
+            if self.tree.focus:
+                self.tree.focus.set_dirty()
+            self.tree.focus = self
+            self.set_dirty()
+
+    def blur(self) -> None:
+        """Release input focus if this controller holds it."""
+        if self.tree and self.tree.focus is self:
+            self.tree.focus = None
+            self.set_dirty()
+
     def set_dirty(self) -> None:
         """Mark this controller's widget as needing re-rendering on the next update pass."""
         if self.tree:
@@ -222,11 +246,15 @@ class BaseController(Generic[ComponentType]):
             self.tree.exit_result = result
 
     def handle_mount(self, tree: ElementTree) -> None:
-        """Hook called when the widget is first mounted into `tree`."""
+        """Hook called when the widget is first mounted into `tree`; focusable controllers claim unheld focus."""
         self.tree = tree
+        if self.focusable and tree.focus is None:
+            tree.focus = self
 
     def handle_unmount(self) -> None:
         """Hook called when the widget is removed from its tree."""
+        if self.tree and self.tree.focus is self:
+            self.tree.focus = None
         self.tree = None
 
     def handle_update(self, new_props: ComponentType) -> None:
@@ -236,10 +264,10 @@ class BaseController(Generic[ComponentType]):
     def handle_input(self, ch: str) -> bool:
         """Hook called for each input sequence delivered to the widget.
 
-        Return `False` to consume the sequence and stop it from propagating to descendant widgets;
-        any other value (including the default) lets it continue down the tree.
+        Return `True` to consume the sequence and stop it from propagating further down the tree;
+        any falsy value (including the default) lets it continue.
         """
-        return True
+        return False
 
     def contents(self) -> list[Component | None]:
         """Return the children rendered by this controller."""

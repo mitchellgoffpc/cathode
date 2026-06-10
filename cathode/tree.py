@@ -4,7 +4,7 @@ from itertools import zip_longest
 from typing import Any, NamedTuple
 from uuid import UUID
 
-from cathode.components import Component, Element, Overlay, Text, Widget
+from cathode.components import BaseController, Component, Element, Overlay, Text, Widget
 
 
 class Offset(NamedTuple):
@@ -28,6 +28,7 @@ class ElementTree:
         self.widths: dict[UUID, int] = {}
         self.heights: dict[UUID, int] = {}
         self.dirty: set[UUID] = set()
+        self.focus: BaseController | None = None
         self.exiting = False
         self.exit_result: Any = None
 
@@ -70,14 +71,32 @@ def depth(tree: ElementTree, node: Component) -> int:
         depth += 1
     return depth
 
+def _focus_path(tree: ElementTree) -> set[UUID]:
+    if tree.focus is None:
+        return set()
+    path = {(uuid := tree.focus.props.uuid)}
+    while uuid in tree.parents:
+        path.add(uuid := tree.parents[uuid])
+    return path
+
 # Propagate input to a component and its subtree
-def propagate(tree: ElementTree, node: Component, value: Any, event_type: str) -> None:
-    """Dispatch a `handle_<event_type>` event with `value` to `node` and every widget below it."""
-    if isinstance(node, Widget) and getattr(node.controller, f'handle_{event_type}')(value) is False:
-        return
+def propagate(tree: ElementTree, node: Component, value: Any, event_type: str, path: set[UUID] | None = None) -> None:
+    """Dispatch a `handle_<event_type>` event with `value` to `node` and the widgets below it.
+
+    A handler returning `True` consumes the event. While a widget holds focus, events flow only along
+    the path from the root to the focused widget and then flood its subtree; unfocused focusable
+    widgets are skipped entirely.
+    """
+    path = _focus_path(tree) if path is None else path
+    focused = isinstance(node, Widget) and node.controller is tree.focus
+    if isinstance(node, Widget):
+        if node.controller.focusable and not focused and node.uuid not in path:
+            return
+        if getattr(node.controller, f'handle_{event_type}')(value):
+            return
     for child in tree.children.get(node.uuid, []):
-        if child:
-            propagate(tree, child, value, event_type)
+        if child and (not path or focused or node.uuid not in path or child.uuid in path):
+            propagate(tree, child, value, event_type, path)
 
 # Add a component and all its children to the tree
 def mount(tree: ElementTree, component: Component) -> None:

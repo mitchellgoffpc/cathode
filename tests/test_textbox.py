@@ -18,6 +18,9 @@ def create_tree(textbox: TextBox) -> tuple[ElementTree, Box, TextBoxController]:
     assert isinstance(textbox.controller, TextBoxController)
     return tree, root, textbox.controller
 
+def create_controller(textbox: TextBox) -> TextBoxController:
+    return create_tree(textbox)[2]
+
 
 @pytest.mark.parametrize(("text", "cursor_pos", "width", "wrap", "expected_text"), [
     pytest.param("", 0, 10, Wrap.EXACT, Styles.inverse(' '), id="empty text"),
@@ -49,7 +52,7 @@ def create_tree(textbox: TextBox) -> tuple[ElementTree, Box, TextBoxController]:
                  id="word wrap trailing spaces, cursor past end"),
 ])
 def test_textbox_wrapping_rendering(text: str, cursor_pos: int, width: int, wrap: Wrap, expected_text: str) -> None:
-    textbox = TextBoxController(TextBox(width=width, wrap=wrap))
+    textbox = create_controller(TextBox(width=width, wrap=wrap))
     textbox.text = text
     textbox.cursor_pos = cursor_pos
     text_elem = textbox.contents()[0]
@@ -82,7 +85,7 @@ def test_textbox_width_limit() -> None:
 ])
 def test_textbox_basic_text_editing(initial_text: str, initial_cursor: int, inputs: list[str],
                                      expected_text: str, expected_cursor: int) -> None:
-    textbox = TextBoxController(TextBox(width=20))
+    textbox = create_controller(TextBox(width=20))
     textbox.text = initial_text
     textbox.cursor_pos = initial_cursor
     for ch in inputs:
@@ -176,7 +179,7 @@ def test_textbox_kill_yank_and_mark_keybindings(initial_text: str, initial_curso
                                                   expected_text: str, expected_cursor: int,
                                                   mark: int | None, expected_mark: int | None,
                                                   kill_buf: str | None, expected_kill_buf: str | None) -> None:
-    textbox = TextBoxController(TextBox(width=20))
+    textbox = create_controller(TextBox(width=20))
     textbox.text = initial_text
     textbox.cursor_pos = initial_cursor
     if mark is not None:
@@ -193,7 +196,7 @@ def test_textbox_kill_yank_and_mark_keybindings(initial_text: str, initial_curso
 
 
 def test_textbox_placeholder_rendering() -> None:
-    textbox = TextBoxController(TextBox(width=20, placeholder='Type here'))
+    textbox = create_controller(TextBox(width=20, placeholder='Type here'))
     text_elem = textbox.contents()[0]
     assert isinstance(text_elem, Text)
     assert text_elem.text == Styles.inverse('T') + Styles.dim('ype here')
@@ -205,7 +208,7 @@ def test_textbox_placeholder_rendering() -> None:
 
 def test_textbox_change_callback() -> None:
     handle_change = Mock()
-    textbox = TextBoxController(TextBox(width=20, handle_change=handle_change))
+    textbox = create_controller(TextBox(width=20, handle_change=handle_change))
 
     textbox.handle_input('H')
     handle_change.assert_called_once_with('H')
@@ -223,7 +226,7 @@ def test_textbox_change_callback() -> None:
 
 def test_textbox_bracketed_paste() -> None:
     handle_submit = Mock(return_value=True)
-    textbox = TextBoxController(TextBox(width=20, handle_submit=handle_submit))
+    textbox = create_controller(TextBox(width=20, handle_submit=handle_submit))
     textbox.handle_input('\x1b[200~line one\rline two\nline three\x1b[201~')
     assert textbox.text == 'line one\nline two\nline three'
     assert textbox.cursor_pos == len(textbox.text)
@@ -231,7 +234,7 @@ def test_textbox_bracketed_paste() -> None:
 
 def test_textbox_enter_and_submit_handling() -> None:
     handle_submit = Mock(return_value=True)
-    textbox = TextBoxController(TextBox(width=20, handle_submit=handle_submit))
+    textbox = create_controller(TextBox(width=20, handle_submit=handle_submit))
     textbox.text = 'Test content'
 
     textbox.handle_input('\r')

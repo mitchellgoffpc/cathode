@@ -34,6 +34,7 @@ class TextBox(Widget):
 class TextBoxController(BaseController[TextBox]):
     """Controller backing `TextBox`; manages buffer state, cursor, history, and key bindings."""
 
+    focusable = True
     _text: str = State('')
     _cursor_pos: int = State(0)
     history: list[str] = State([])
@@ -289,11 +290,12 @@ class TextBoxController(BaseController[TextBox]):
         return len(self.text), len(self.text)
 
     def contents(self) -> list[Component | None]:
-        """Render the textbox contents, including placeholder, cursor, and selection highlighting."""
+        """Render the textbox contents, including placeholder, cursor (when focused), and selection highlighting."""
+        cursor = Styles.inverse if self.focused else str
         if not self.text and self.props.placeholder:
             color_fn = (partial(Colors.apply, color=self.props.placeholder_color)
                         if self.props.placeholder_color else Styles.dim)
-            styled_text = Styles.inverse(self.props.placeholder[0]) + color_fn(self.props.placeholder[1:])
+            styled_text = cursor(self.props.placeholder[0]) + color_fn(self.props.placeholder[1:])
         else:
             cursor_pos = self.cursor_pos + self.text.count('\n', 0, self.cursor_pos)
             text = self.text.replace('\n', ' \n')
@@ -307,15 +309,15 @@ class TextBoxController(BaseController[TextBox]):
                 after = text[end + 1:]
                 under = text[cursor_pos:cursor_pos + 1] if cursor_pos < len(text) else ' '
                 if cursor_pos == end:
-                    region = Colors.apply_bg(text[start:end], self.props.highlight_color) + Styles.inverse(under)
+                    region = Colors.apply_bg(text[start:end], self.props.highlight_color) + cursor(under)
                 else:
-                    region = Styles.inverse(under) + Colors.apply_bg(text[start+1:end], self.props.highlight_color)
+                    region = cursor(under) + Colors.apply_bg(text[start+1:end], self.props.highlight_color)
                 styled_text = Colors.apply(before + region + after, self.props.color)
             else:
                 before = text[:cursor_pos]
                 after = text[cursor_pos + 1:]
                 under = text[cursor_pos:cursor_pos + 1] if cursor_pos < len(text) else ' '
-                styled_text = Colors.apply(before + Styles.inverse(under) + after, self.props.color)
+                styled_text = Colors.apply(before + cursor(under) + after, self.props.color)
 
         self.text_ref = Text(styled_text, width=self.props.width, wrap=self.render_wrap)
         return [self.text_ref]
